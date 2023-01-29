@@ -10,6 +10,7 @@ package okex
 import (
 	"bytes"
 	"compress/flate"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/gorilla/websocket"
@@ -28,14 +29,20 @@ type OKWSAgent struct {
 	config  *Config
 	conn    *websocket.Conn
 
-	wsEvtCh  chan interface{}
-	wsErrCh  chan interface{}
+	// 事件
+	wsEvtCh chan interface{}
+	wsErrCh chan interface{}
+	// 数据
 	wsTbCh   chan interface{}
 	stopCh   chan interface{}
 	errCh    chan error
 	signalCh chan os.Signal
 
-	subMap         map[string][]ReceivedDataCallback
+	stopNotify chan error
+
+	// 数据接收处理
+	subMap map[string][]ReceivedDataCallback
+	// 数据订阅状态 默认成功，订阅成功为true
 	activeChannels map[string]bool
 	hotDepthsMap   map[string]*WSHotDepths
 
@@ -46,33 +53,42 @@ func (a *OKWSAgent) Start(config *Config) error {
 	a.config = config
 	a.baseUrl = config.WSEndpoint + "ws/v5/public?compress=true"
 	log.Printf("Connecting to %s", a.baseUrl)
-	c, _, err := websocket.DefaultDialer.Dial(a.baseUrl, nil)
 
-	if err != nil {
-		log.Fatalf("dial:%+v", err)
-		return err
-	} else {
-		if a.config.IsPrint {
-			log.Printf("Connected to %s", a.baseUrl)
+	var (
+		c   *websocket.Conn
+		err error
+	)
+
+	for {
+		c, _, err = websocket.DefaultDialer.Dial(a.baseUrl, nil)
+		if err != nil {
+			log.Printf("dial:%+v,try agin after 1 second...\n", err)
+			time.Sleep(time.Second)
+			continue
 		}
-		a.conn = c
-
-		a.wsEvtCh = make(chan interface{})
-		a.wsErrCh = make(chan interface{})
-		a.wsTbCh = make(chan interface{})
-		a.errCh = make(chan error)
-		a.stopCh = make(chan interface{}, 16)
-		a.signalCh = make(chan os.Signal)
-		a.activeChannels = make(map[string]bool)
-		a.subMap = make(map[string][]ReceivedDataCallback)
-		a.hotDepthsMap = make(map[string]*WSHotDepths)
-
-		signal.Notify(a.signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
-		go a.work()
-		go a.receive()
-		go a.finalize()
+		break
 	}
+	if a.config.IsPrint {
+		log.Printf("Connected to %s", a.baseUrl)
+	}
+	a.conn = c
+
+	a.wsEvtCh = make(chan interface{})
+	a.wsErrCh = make(chan interface{})
+	a.wsTbCh = make(chan interface{})
+	a.errCh = make(chan error)
+	a.stopCh = make(chan interface{}, 16)
+	a.signalCh = make(chan os.Signal)
+	a.activeChannels = make(map[string]bool)
+	a.subMap = make(map[string][]ReceivedDataCallback)
+	a.hotDepthsMap = make(map[string]*WSHotDepths)
+	a.stopNotify = make(chan error)
+
+	signal.Notify(a.signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go a.work()
+	go a.receive()
+	go a.finalize()
 
 	return nil
 }
@@ -127,21 +143,22 @@ func (a *OKWSAgent) SubscribeV5(args []interface{}) error {
 	if err := a.conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 		return err
 	}
-
-	// cbs := a.subMap[st.channel]
-	// if cbs == nil {
-	// 	cbs = []ReceivedDataCallback{}
-	// 	a.activeChannels[st.channel] = false
-	// }
-
-	// if cb != nil {
-	// 	cbs = append(cbs, cb)
-	// 	fullTopic, _ := st.ToString()
-	// 	a.subMap[st.channel] = cbs
-	// 	a.subMap[fullTopic] = cbs
-	// }
-
 	return nil
+}
+
+func (a *OKWSAgent) WithCallback(channel string, cb ReceivedDataCallback) *OKWSAgent {
+	a.processMut.Lock()
+	defer a.processMut.Unlock()
+	cbs := a.subMap[channel]
+	if cbs == nil {
+		cbs = []ReceivedDataCallback{}
+	}
+
+	if cb != nil {
+		cbs = append(cbs, cb)
+		a.subMap[channel] = cbs
+	}
+	return a
 }
 
 func (a *OKWSAgent) UnSubscribe(channel, filter string) error {
@@ -199,7 +216,12 @@ func (a *OKWSAgent) Stop() error {
 	}()
 
 	close(a.stopCh)
+	a.stopNotify <- fmt.Errorf("stop")
 	return nil
+}
+
+func (a *OKWSAgent) IsStop() <-chan error {
+	return a.stopNotify
 }
 
 func (a *OKWSAgent) finalize() error {
@@ -223,7 +245,7 @@ func (a *OKWSAgent) finalize() error {
 
 func (a *OKWSAgent) ping() {
 	msg := "ping"
-	//log.Printf("Send Msg: %s", msg)
+	log.Printf("Send Msg: %s", msg)
 	a.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 
@@ -241,7 +263,7 @@ func (a *OKWSAgent) handleErrResponse(r interface{}) error {
 
 func (a *OKWSAgent) handleEventResponse(r interface{}) error {
 	er := r.(*WSEventResponse)
-	a.activeChannels[er.Channel] = (er.Event == CHNL_EVENT_SUBSCRIBE)
+	a.activeChannels[er.Arg.Channel] = (er.Event == CHNL_EVENT_SUBSCRIBE)
 	return nil
 }
 
@@ -252,6 +274,8 @@ func (a *OKWSAgent) handleTableResponse(r interface{}) error {
 		tb = r.(*WSTableResponse).Table
 	case *WSDepthTableResponse:
 		tb = r.(*WSDepthTableResponse).Table
+	case *WSDepthTableV5Response:
+		tb = r.(*WSDepthTableV5Response).Arg.Channel
 	}
 
 	cbs := a.subMap[tb]
@@ -275,7 +299,7 @@ func (a *OKWSAgent) work() {
 
 	defer a.Stop()
 
-	ticker := time.NewTicker(29 * time.Second)
+	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -289,10 +313,10 @@ func (a *OKWSAgent) work() {
 		case tb := <-a.wsTbCh:
 			a.handleTableResponse(tb)
 		case <-a.signalCh:
-			break
+			return
 		case err := <-a.errCh:
 			DefaultDataCallBack(err)
-			break
+			return
 		case <-a.stopCh:
 			return
 
@@ -323,6 +347,10 @@ func (a *OKWSAgent) receive() {
 			txtMsg, err = a.GzipDecode(message)
 		}
 
+		if string(txtMsg) == "pong" {
+			continue
+		}
+
 		rsp, err := loadResponse(txtMsg)
 		if rsp != nil {
 			if a.config.IsPrint {
@@ -342,6 +370,9 @@ func (a *OKWSAgent) receive() {
 		case *WSEventResponse:
 			er := rsp.(*WSEventResponse)
 			a.wsEvtCh <- er
+		case *WSDepthTableV5Response:
+			er := rsp.(*WSDepthTableV5Response)
+			a.wsTbCh <- er
 		case *WSDepthTableResponse:
 			var err error
 			dtr := rsp.(*WSDepthTableResponse)

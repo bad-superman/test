@@ -26,6 +26,19 @@ type BaseOpV5 struct {
 	Args []interface{} `json:"args"`
 }
 
+type OpArgBase struct {
+	Channel string `json:"channel"`
+}
+
+func (o *OpArgBase) GetChannel() string {
+	return o.Channel
+}
+
+type DepthArg struct {
+	OpArgBase
+	InstId string `json:"instId"`
+}
+
 func subscribeOp(sts []*SubscriptionTopic) (op *BaseOp, err error) {
 
 	strArgs := []string{}
@@ -89,14 +102,34 @@ func (st *SubscriptionTopic) ToString() (topic string, err error) {
 	}
 }
 
+// ############################################
+// 推送接收数据
+// ############################################
+type WsBaseResponse struct {
+	Event string `json:"event"`
+	Arg   struct {
+		Channel string `json:"channel"`
+	} `json:"arg"`
+}
+
+func (r *WsBaseResponse) Valid() bool {
+	return r.Arg.Channel != ""
+}
+
 type WSEventResponse struct {
-	Event   string `json:"event"`
-	Success string `json:success`
-	Channel string `json:"channel"`
+	Event string `json:"event"`
+	Arg   struct {
+		Channel  string `json:"channel"`  // 频道名
+		InstType string `json:"instType"` //产品类型 SPOT:币币 MARGIN:币币杠杆 SWAP:永续合约 FUTURES:交割合约 OPTION:期权 ANY:全部
+		Uly      string `json:"uly"`      //合约标的指数
+		InstId   string `json:"instId"`   //产品ID
+	}
+	Code string `json:"code"` // 错误码
+	Msg  string `json:"msg"`  //错误消息
 }
 
 func (r *WSEventResponse) Valid() bool {
-	return (len(r.Event) > 0 && len(r.Channel) > 0) || r.Event == "login"
+	return (len(r.Event) > 0 && len(r.Arg.Channel) > 0) || r.Event == "login"
 }
 
 type WSTableResponse struct {
@@ -238,6 +271,26 @@ func (r *WSDepthTableResponse) Valid() bool {
 	return (len(r.Table) > 0 || len(r.Action) > 0) && strings.Contains(r.Table, "depth") && len(r.Data) > 0
 }
 
+type WSDepthItemV5 struct {
+	InstrumentId string      `json:"instId"`
+	Asks         [][4]string `json:"asks"`
+	Bids         [][4]string `json:"bids"`
+	Timestamp    string      `json:"ts"`
+	Checksum     int32       `json:"checksum"`
+}
+
+type WSDepthTableV5Response struct {
+	Arg struct {
+		Channel string `json:"channel"`
+		InstId  string `json:"instId"`
+	}
+	Data []WSDepthItemV5 `json:"data"`
+}
+
+func (r *WSDepthTableV5Response) Valid() bool {
+	return len(r.Data) > 0
+}
+
 type WSHotDepths struct {
 	Table    string
 	DepthMap map[string]*WSDepthItem
@@ -305,35 +358,49 @@ func (r *WSErrorResponse) Valid() bool {
 
 func loadResponse(rspMsg []byte) (interface{}, error) {
 
+	baseResp := WsBaseResponse{}
+	err := JsonBytes2Struct(rspMsg, &baseResp)
+	if err != nil || !baseResp.Valid() {
+		return nil, err
+	}
+
 	//log.Printf("%s", rspMsg)
-
-	evtR := WSEventResponse{}
-	err := JsonBytes2Struct(rspMsg, &evtR)
-	if err == nil && evtR.Valid() {
-		return &evtR, nil
+	switch baseResp.Arg.Channel {
+	case "subscribe", "unsubscribe":
+		evtR := WSEventResponse{}
+		err := JsonBytes2Struct(rspMsg, &evtR)
+		if err == nil && evtR.Valid() {
+			return &evtR, nil
+		}
+	case "books", "books5", "books-l2-tbt", "books50-l2-tbt":
+		dtr := WSDepthTableV5Response{}
+		err = JsonBytes2Struct(rspMsg, &dtr)
+		if err == nil && dtr.Valid() {
+			return &dtr, nil
+		}
 	}
 
-	dtr := WSDepthTableResponse{}
-	err = JsonBytes2Struct(rspMsg, &dtr)
-	if err == nil && dtr.Valid() {
-		return &dtr, nil
-	}
+	// dtr := WSDepthTableResponse{}
+	// err = JsonBytes2Struct(rspMsg, &dtr)
+	// if err == nil && dtr.Valid() {
+	// 	return &dtr, nil
+	// }
 
-	tr := WSTableResponse{}
-	err = JsonBytes2Struct(rspMsg, &tr)
-	if err == nil && tr.Valid() {
-		return &tr, nil
-	}
+	// tr := WSTableResponse{}
+	// err = JsonBytes2Struct(rspMsg, &tr)
+	// if err == nil && tr.Valid() {
+	// 	return &tr, nil
+	// }
 
-	er := WSErrorResponse{}
-	err = JsonBytes2Struct(rspMsg, &er)
-	if err == nil && er.Valid() {
-		return &er, nil
-	}
+	// er := WSErrorResponse{}
+	// err = JsonBytes2Struct(rspMsg, &er)
+	// if err == nil && er.Valid() {
+	// 	return &er, nil
+	// }
 
-	if string(rspMsg) == "pong" {
-		return string(rspMsg), nil
-	}
+	// if string(rspMsg) == "pong" {
+	// 	return string(rspMsg), nil
+	// }
 
 	return nil, err
 
