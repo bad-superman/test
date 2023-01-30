@@ -6,7 +6,9 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
+	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/logging"
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
 )
@@ -34,28 +36,46 @@ func DepthCallback(d interface{}) error {
 		btc_usd_ask = ask
 		btc_usd_bid = bid
 	}
-	if btc_usdt_ask == 0 || btc_usdt_bid == 0 {
-		return nil
-	}
-	if btc_usd_ask == 0 || btc_usd_bid == 0 {
-		return nil
-	}
-	// 正向基差：spot买 feature卖
-	gap_z := (btc_usd_bid - btc_usdt_ask) / btc_usdt_ask * 100
-	// 反向基差：feature买 spot卖
-	gap_f := (btc_usdt_bid - btc_usd_ask) / btc_usd_ask * 100
-	log.Printf("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
-	log.Printf("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
-	log.Printf("gap_z:%.2f gap_f:%.2f\n", gap_z, gap_f)
 	return nil
 }
 
+func InterestRateUpload() {
+	influxDB := dao.NewInfluxDB()
+	c := time.Tick(15 * time.Second)
+	for {
+		<-c
+		if btc_usdt_ask == 0 || btc_usdt_bid == 0 {
+			continue
+		}
+		if btc_usd_ask == 0 || btc_usd_bid == 0 {
+			continue
+		}
+		// 正向基差：spot买 feature卖
+		gap_forward := (btc_usd_bid - btc_usdt_ask) / btc_usdt_ask * 100
+		// 反向基差：feature买 spot卖
+		gap_reverse := (btc_usdt_bid - btc_usd_ask) / btc_usd_ask * 100
+		log.Printf("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
+		log.Printf("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
+		log.Printf("gap_z:%.2f gap_f:%.2f\n", gap_forward, gap_reverse)
+		fields := map[string]interface{}{
+			"forward": gap_forward,
+			"reverse": gap_reverse,
+		}
+		tags := map[string]string{
+			"path": "btc_usdt_spot-btc_usd_quater",
+		}
+		influxDB.WritePoint("interest_rate", fields, tags)
+	}
+}
+
 func main() {
+	go InterestRateUpload()
+
 	agent := &okex_sdk.OKWSAgent{}
 	config := &okex_sdk.Config{
 		WSEndpoint:    okex_sdk.WS_API_HOST,
 		TimeoutSecond: 10,
-		IsPrint:       true,
+		IsPrint:       false,
 	}
 
 	// 设置base url
