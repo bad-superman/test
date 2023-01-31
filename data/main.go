@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bad-superman/test/dao"
+	"github.com/bad-superman/test/data/process"
 	"github.com/bad-superman/test/logging"
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
 )
@@ -69,6 +70,8 @@ func InterestRateUpload() {
 }
 
 func main() {
+	// otc 数据
+	process.NewDataCron().Run()
 	go InterestRateUpload()
 
 	agent := &okex_sdk.OKWSAgent{}
