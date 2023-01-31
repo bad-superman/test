@@ -20,7 +20,7 @@ func GetDefaultConfig() *Config {
 
 	config.TimeoutSecond = 45
 	config.IsPrint = true
-	config.I18n = ENGLISH
+	// config.I18n = ENGLISH
 
 	config.WSEndpoint = "wss://real.okex.com:8443/ws/v3"
 
@@ -57,10 +57,4 @@ func GetDefaultConfig() *Config {
 	config.Passphrase = ""
 
 	return &config
-}
-
-func NewTestClient() *Client {
-	// Set OKEX API's config
-	client := NewClient(*GetDefaultConfig())
-	return client
 }

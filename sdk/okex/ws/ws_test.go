@@ -1,4 +1,4 @@
-package okex
+package ws
 
 /*
  OKEX ws api websocket test & sample
@@ -9,15 +9,18 @@ package okex
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"hash/crc32"
 	"testing"
 	"time"
+
+	"github.com/bad-superman/test/sdk/okex"
+	"github.com/bad-superman/test/sdk/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOKWSAgent_AllInOne(t *testing.T) {
 	agent := OKWSAgent{}
-	config := GetDefaultConfig()
+	config := okex.GetDefaultConfig()
 
 	// Step1: Start agent.
 	agent.Start(config)
@@ -52,7 +55,7 @@ func TestOKWSAgent_AllInOne(t *testing.T) {
 
 func TestOKWSAgent_Depths(t *testing.T) {
 	agent := OKWSAgent{}
-	config := GetDefaultConfig()
+	config := okex.GetDefaultConfig()
 
 	// Step1: Start agent.
 	agent.Start(config)
@@ -161,9 +164,9 @@ func TestArray(t *testing.T) {
 		{1, 2, 3, 4},
 	}
 
-	r1, _ := Struct2JsonString(t1)
-	r2, _ := Struct2JsonString(t2)
-	r3, _ := Struct2JsonString(t3)
+	r1, _ := utils.Struct2JsonString(t1)
+	r2, _ := utils.Struct2JsonString(t2)
+	r3, _ := utils.Struct2JsonString(t3)
 
 	println(len(t1), r1)
 	println(len(t2), r2)
@@ -202,7 +205,7 @@ func TestFmtSprintf(t *testing.T) {
 
 func TestOKWSAgent_Futures_AllInOne(t *testing.T) {
 	agent := OKWSAgent{}
-	config := GetDefaultConfig()
+	config := okex.GetDefaultConfig()
 	publicChannels := []string{
 		CHNL_FUTURES_CANDLE60S,
 		CHNL_FUTURES_CANDLE180S,
@@ -256,7 +259,7 @@ func TestOKWSAgent_Futures_AllInOne(t *testing.T) {
 
 func TestOKWSAgent_Spots_AllInOne(t *testing.T) {
 	agent := OKWSAgent{}
-	config := GetDefaultConfig()
+	config := okex.GetDefaultConfig()
 	publicChannels := []string{
 		CHNL_SPOT_CANDLE60S,
 		CHNL_SPOT_CANDLE180S,

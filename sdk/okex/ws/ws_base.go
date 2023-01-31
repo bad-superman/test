@@ -1,4 +1,4 @@
-package okex
+package ws
 
 /*
  OKEX websocket api wrapper
@@ -14,6 +14,8 @@ import (
 	"hash/crc32"
 	"strconv"
 	"strings"
+
+	"github.com/bad-superman/test/sdk/utils"
 )
 
 type BaseOp struct {
@@ -167,7 +169,7 @@ func mergeDepths(oldDepths [][4]interface{}, newDepths [][4]interface{}) (*[][4]
 		}
 
 		if oldPrice == newPrice {
-			newNum := StringToInt64(newItem[1].(string))
+			newNum := utils.StringToInt64(newItem[1].(string))
 
 			if newNum > 0 {
 				mergedDepths = append(mergedDepths, newItem)
@@ -359,7 +361,7 @@ func (r *WSErrorResponse) Valid() bool {
 func loadResponse(rspMsg []byte) (interface{}, error) {
 
 	baseResp := WsBaseResponse{}
-	err := JsonBytes2Struct(rspMsg, &baseResp)
+	err := utils.JsonBytes2Struct(rspMsg, &baseResp)
 	if err != nil || !baseResp.Valid() {
 		return nil, err
 	}
@@ -368,13 +370,13 @@ func loadResponse(rspMsg []byte) (interface{}, error) {
 	switch baseResp.Arg.Channel {
 	case "subscribe", "unsubscribe":
 		evtR := WSEventResponse{}
-		err := JsonBytes2Struct(rspMsg, &evtR)
+		err := utils.JsonBytes2Struct(rspMsg, &evtR)
 		if err == nil && evtR.Valid() {
 			return &evtR, nil
 		}
 	case "books", "books5", "books-l2-tbt", "books50-l2-tbt":
 		dtr := WSDepthTableV5Response{}
-		err = JsonBytes2Struct(rspMsg, &dtr)
+		err = utils.JsonBytes2Struct(rspMsg, &dtr)
 		if err == nil && dtr.Valid() {
 			return &dtr, nil
 		}
@@ -413,7 +415,7 @@ func defaultPrintData(obj interface{}) error {
 	case string:
 		fmt.Println(obj)
 	default:
-		msg, err := Struct2JsonString(obj)
+		msg, err := utils.Struct2JsonString(obj)
 		if err != nil {
 			fmt.Println(err.Error())
 			return err

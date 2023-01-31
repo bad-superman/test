@@ -1,4 +1,4 @@
-package okex
+package ws
 
 /*
  OKEX websocket API agent
@@ -12,7 +12,10 @@ import (
 	"compress/flate"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
+	"github.com/bad-superman/test/sdk/okex"
+	"github.com/bad-superman/test/sdk/utils"
 	"github.com/gorilla/websocket"
 
 	"log"
@@ -26,7 +29,7 @@ import (
 
 type OKWSAgent struct {
 	baseUrl string
-	config  *Config
+	config  *okex.Config
 	conn    *websocket.Conn
 
 	// 事件
@@ -49,7 +52,7 @@ type OKWSAgent struct {
 	processMut sync.Mutex
 }
 
-func (a *OKWSAgent) Start(config *Config) error {
+func (a *OKWSAgent) Start(config *okex.Config) error {
 	a.config = config
 	a.baseUrl = config.WSEndpoint + "ws/v5/public?compress=true"
 	log.Printf("Connecting to %s", a.baseUrl)
@@ -103,7 +106,7 @@ func (a *OKWSAgent) Subscribe(channel, filter string, cb ReceivedDataCallback) e
 		return err
 	}
 
-	msg, err := Struct2JsonString(bo)
+	msg, err := utils.Struct2JsonString(bo)
 	if a.config.IsPrint {
 		log.Printf("Send Msg: %s", msg)
 	}
@@ -136,7 +139,7 @@ func (a *OKWSAgent) SubscribeV5(args []interface{}) error {
 		Args: args,
 	}
 
-	msg, _ := Struct2JsonString(bo)
+	msg, _ := utils.Struct2JsonString(bo)
 	if a.config.IsPrint {
 		log.Printf("Send Msg: %s", msg)
 	}
@@ -171,7 +174,7 @@ func (a *OKWSAgent) UnSubscribe(channel, filter string) error {
 		return err
 	}
 
-	msg, err := Struct2JsonString(bo)
+	msg, err := utils.Struct2JsonString(bo)
 	if a.config.IsPrint {
 		log.Printf("Send Msg: %s", msg)
 	}
@@ -187,14 +190,14 @@ func (a *OKWSAgent) UnSubscribe(channel, filter string) error {
 
 func (a *OKWSAgent) Login(apiKey, passphrase string) error {
 
-	timestamp := EpochTime()
+	timestamp := utils.EpochTime()
 
-	preHash := PreHashString(timestamp, GET, "/users/self/verify", "")
-	if sign, err := HmacSha256Base64Signer(preHash, a.config.SecretKey); err != nil {
+	preHash := utils.PreHashString(timestamp, http.MethodGet, "/users/self/verify", "")
+	if sign, err := utils.HmacSha256Base64Signer(preHash, a.config.SecretKey); err != nil {
 		return err
 	} else {
 		op, err := loginOp(apiKey, passphrase, timestamp, sign)
-		data, err := Struct2JsonString(op)
+		data, err := utils.Struct2JsonString(op)
 		log.Printf("Send Msg: %s", data)
 		err = a.conn.WriteMessage(websocket.TextMessage, []byte(data))
 		if err != nil {

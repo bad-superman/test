@@ -12,6 +12,7 @@ import (
 	"github.com/bad-superman/test/data/process"
 	"github.com/bad-superman/test/logging"
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
+	okex_ws_sdk "github.com/bad-superman/test/sdk/okex/ws"
 )
 
 var btc_usdt_ask float64
@@ -22,7 +23,7 @@ var btc_usd_bid float64
 
 func DepthCallback(d interface{}) error {
 	logging.Infof("GetDepth Msg: %s", d)
-	data, ok := d.(*okex_sdk.WSDepthTableV5Response)
+	data, ok := d.(*okex_ws_sdk.WSDepthTableV5Response)
 	if !ok {
 		return nil
 	}
@@ -74,9 +75,9 @@ func main() {
 	process.NewDataCron().Run()
 	go InterestRateUpload()
 
-	agent := &okex_sdk.OKWSAgent{}
+	agent := &okex_ws_sdk.OKWSAgent{}
 	config := &okex_sdk.Config{
-		WSEndpoint:    okex_sdk.WS_API_HOST,
+		WSEndpoint:    okex_ws_sdk.WS_API_HOST,
 		TimeoutSecond: 10,
 		IsPrint:       false,
 	}
@@ -92,13 +93,13 @@ START:
 
 	// Step2: Subscribe channel
 	// Step2.0: Subscribe public channel swap/depths successfully.
-	args := okex_sdk.DepthArg{
-		OpArgBase: okex_sdk.OpArgBase{Channel: "books5"},
+	args := okex_ws_sdk.DepthArg{
+		OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
 		InstId:    "BTC-USDT",
 	}
 
-	args1 := okex_sdk.DepthArg{
-		OpArgBase: okex_sdk.OpArgBase{Channel: "books5"},
+	args1 := okex_ws_sdk.DepthArg{
+		OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
 		InstId:    "BTC-USD-230331",
 	}
 	agent.SubscribeV5([]interface{}{args, args1})

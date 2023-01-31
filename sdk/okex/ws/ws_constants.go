@@ -1,4 +1,4 @@
-package okex
+package ws
 
 /*
  OKEX websocket api constants
