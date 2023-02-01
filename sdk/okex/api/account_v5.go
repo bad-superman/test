@@ -16,6 +16,7 @@ const (
 // 获取交易账户中资金余额信息。
 // ccy	String	否	币种，如 BTC
 // 支持多币种查询（不超过20个），币种之间半角逗号分隔
+// https://aws.okx.com/docs-v5/zh/#rest-api-account-get-balance
 func (o *OkexClient) AccountBalance(coins []string) ([]AccountBalanceData, error) {
 	url := _accountBalanceURL
 	if len(coins) > 0 {
@@ -46,6 +47,7 @@ func (o *OkexClient) AccountBalance(coins []string) ([]AccountBalanceData, error
 //
 // posId 持仓ID
 // 支持多个posId查询（不超过20个），半角逗号分割
+// https://aws.okx.com/docs-v5/zh/#rest-api-account-get-positions
 func (o *OkexClient) AccountPositions(instType string, instId, posId []string) ([]AccountPositionsData, error) {
 	url := _accountPositionsURL
 
@@ -81,6 +83,7 @@ func (o *OkexClient) AccountPositions(instType string, instId, posId []string) (
 // SWAP：永续合约
 // FUTURES：交割合约
 // OPTION：期权
+// https://aws.okx.com/docs-v5/zh/#rest-api-account-get-account-and-position-risk
 func (o *OkexClient) PositionRisk(instType string) ([]PositionRiskData, error) {
 	url := _accountPositionRiskURL
 	if len(instType) > 0 {

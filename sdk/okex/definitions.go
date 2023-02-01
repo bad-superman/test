@@ -1,6 +1,3 @@
-// Package okex is generally a golang Api wrapper of Okex V5 API
-//
-// https://www.okex.com/docs-v5/en
 package okex
 
 import (
@@ -9,6 +6,8 @@ import (
 	"strings"
 	"time"
 )
+
+// https://github.com/aiviaio/okex/blob/main/models/trade/trade_models.go
 
 type (
 	BaseURL              string
@@ -225,12 +224,12 @@ const (
 	ClassC = FeeCategory(3)
 	ClassD = FeeCategory(4)
 
-	OrderCancel          = OrderState("canceled")
-	OrderPause           = OrderState("pause")
-	OrderLive            = OrderState("live")
-	OrderPartiallyFilled = OrderState("partially_filled")
-	OrderFilled          = OrderState("filled")
-	OrderUnfilled        = OrderState("unfilled")
+	OrderCancel          = OrderState("canceled")         //canceled：撤单成功
+	OrderPause           = OrderState("pause")            //
+	OrderLive            = OrderState("live")             //live：等待成交
+	OrderPartiallyFilled = OrderState("partially_filled") //partially_filled：部分成交
+	OrderFilled          = OrderState("filled")           //filled：完全成交
+	OrderUnfilled        = OrderState("unfilled")         //
 
 	TransferWithinAccount     = TransferType(0)
 	MasterAccountToSubAccount = TransferType(1)
