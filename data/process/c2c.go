@@ -24,6 +24,7 @@ func NewDataCron() *DataCron {
 
 func (d *DataCron) Run() {
 	d.cron.AddFunc("0 * * * * *", d.OkexOTCCron)
+	d.cron.AddFunc("0 * * * * *", d.OkexExchangeRate)
 	d.cron.Start()
 }
 
@@ -61,4 +62,35 @@ func (d *DataCron) OkexOTCCron() {
 		return
 	}
 	logging.Infof("DataCron|C2COrderBooks WritePoint ok,ask:%f,bid:%f", ask, bid)
+}
+
+func (d *DataCron) OkexExchangeRate() {
+	data, err := d.okexClient.ExchangeRate()
+	if err != nil {
+		logging.Errorf("DataCron|ExchangeRate error,err:%v", err)
+		return
+	}
+
+	var (
+		usdCnyPrice float64
+	)
+
+	if len(data) > 0 {
+		usdCnyPrice = utils.StringToFloat64(data[0].UsdCny)
+	}
+
+	fields := map[string]interface{}{
+		"price": usdCnyPrice,
+	}
+
+	tags := map[string]string{
+		"coin_quote": "USD_CNY",
+	}
+
+	err = d.influxDb.WritePoint("exchange_rate", fields, tags)
+	if err != nil {
+		logging.Errorf("DataCron|ExchangeRate WritePoint error,err:%v", err)
+		return
+	}
+	logging.Infof("DataCron|ExchangeRate WritePoint ok,usdCnyPrice:%f", usdCnyPrice)
 }
