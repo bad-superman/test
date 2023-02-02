@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bad-superman/test/logging"
+	"github.com/bad-superman/test/sdk/okex"
 )
 
 const (
@@ -93,4 +94,36 @@ func (o *OkexClient) ModifyOrder(req *ModifyOrderReq) error {
 	err = fmt.Errorf("code:%s msg:%s", code, msg)
 	logging.Errorf("OkexClient|ModifyOrder error,err:%v", err)
 	return err
+}
+
+// ##########################################################
+// 合约下单
+// tdMode 保证金模式
+// side 订单方向
+// posSide 在双向持仓模式下必填，且仅可选择 long 或 short
+// sz 委托数量，指合约张数 btc 100u一张 其他10u
+// px 价格
+func (o *OkexClient) TradeFuturesOrder(instId string,
+	tdMode okex.TradeMode,
+	side okex.OrderSide,
+	posSide okex.PositionSide,
+	sz okex.JSONFloat64,
+	px okex.JSONFloat64,
+	ordType okex.OrderType) (*TradeOrderData, error) {
+	req := &Order{
+		InstID:  instId,
+		TdMode:  tdMode,
+		Side:    side,
+		PosSide: posSide,
+		Sz:      sz,
+		Px:      px,
+		OrdType: ordType,
+	}
+	res := new(TradeOrderResp)
+	err := o.post(_tradeOrderURL, req, res)
+	if err != nil {
+		logging.Errorf("OkexClient|TradeOrder error,err:%v", err)
+		return nil, err
+	}
+	return &res.Data[0], nil
 }

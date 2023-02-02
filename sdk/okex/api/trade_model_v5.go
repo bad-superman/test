@@ -28,8 +28,8 @@ type (
 		Rebate       okex.JSONFloat64    `json:"rebate"`
 		State        okex.OrderState     `json:"state"`
 		TdMode       okex.TradeMode      `json:"tdMode"`
-		PosSide      okex.PositionSide   `json:"posSide"`
-		Side         okex.OrderSide      `json:"side"`
+		PosSide      okex.PositionSide   `json:"posSide,omitempty"`
+		Side         okex.OrderSide      `json:"side,omitempty"`
 		OrdType      okex.OrderType      `json:"ordType"`
 		InstType     okex.InstrumentType `json:"instType"`
 		TgtCcy       okex.QuantityType   `json:"tgtCcy"`
