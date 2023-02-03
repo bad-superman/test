@@ -8,12 +8,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/data/process"
 	"github.com/bad-superman/test/logging"
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
 	okex_ws_sdk "github.com/bad-superman/test/sdk/okex/ws"
 )
+
+func init() {
+	// 初始化配置
+	conf.Init("./config.toml")
+}
 
 var btc_usdt_ask float64
 var btc_usdt_bid float64

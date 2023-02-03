@@ -1,6 +1,7 @@
 package process
 
 import (
+	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/logging"
 	okex_api "github.com/bad-superman/test/sdk/okex/api"
@@ -15,10 +16,11 @@ type DataCron struct {
 }
 
 func NewDataCron() *DataCron {
+	c := conf.GetConfig()
 	return &DataCron{
 		cron:       cron.New(),
 		influxDb:   dao.NewInfluxDB(),
-		okexClient: okex_api.NewOkexClient(),
+		okexClient: okex_api.NewOkexClientByName(c, "test"),
 	}
 }
 

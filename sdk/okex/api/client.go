@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/logging"
 	"github.com/bad-superman/test/sdk/utils"
 )
@@ -20,10 +21,12 @@ const (
 )
 
 type OkexClient struct {
-	apiKey     string
-	secretKey  string
-	passphrase string
-	client     http.Client
+	isSimulatedTrading bool // 模拟盘
+	name               string
+	apiKey             string
+	secretKey          string
+	passphrase         string
+	client             http.Client
 }
 
 func NewOkexClient() *OkexClient {
@@ -31,6 +34,25 @@ func NewOkexClient() *OkexClient {
 		apiKey:     _okexApiKey,
 		secretKey:  _okexSecretKey,
 		passphrase: _okexPassphrase,
+		client: http.Client{
+			Timeout: 10 * time.Second,
+		},
+	}
+}
+
+func NewOkexClientByName(c *conf.Config, name string) *OkexClient {
+	var okexConfig = &conf.OkexConfig{}
+	for _, cnf := range c.OkexConfigs {
+		if cnf.Name == name {
+			okexConfig = cnf
+			break
+		}
+	}
+	return &OkexClient{
+		name:       name,
+		apiKey:     okexConfig.ApiKey,
+		secretKey:  okexConfig.SecretKey,
+		passphrase: okexConfig.Passphrase,
 		client: http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -69,6 +91,10 @@ func (o *OkexClient) request(method string, url string, data interface{}, result
 	req.Header.Add("OK-ACCESS-TIMESTAMP", ts)
 	req.Header.Add("OK-ACCESS-PASSPHRASE", o.passphrase)
 	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
+	// 模拟盘
+	if o.isSimulatedTrading {
+		req.Header.Add("x-simulated-trading", "1")
+	}
 
 	resp, err := o.client.Do(req)
 	if err != nil {
