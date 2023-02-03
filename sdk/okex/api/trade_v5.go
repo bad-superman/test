@@ -5,12 +5,14 @@ import (
 
 	"github.com/bad-superman/test/logging"
 	"github.com/bad-superman/test/sdk/okex"
+	"github.com/google/go-querystring/query"
 )
 
 const (
 	_tradeOrderURL       = "/api/v5/trade/order"
 	_tradeCancelOrderURL = "/api/v5/trade/cancel-order"
 	_tradeAmendOrder     = "/api/v5/trade/amend-order"
+	_TradePendingOrders  = "/api/v5/trade/orders-pending"
 )
 
 // 下单
@@ -91,6 +93,18 @@ func (o *OkexClient) ModifyOrder(req *ModifyOrderReq) error {
 	err = fmt.Errorf("code:%s msg:%s", code, msg)
 	logging.Errorf("OkexClient|ModifyOrder error,err:%v", err)
 	return err
+}
+
+// 获取未成交订单列表
+func (o *OkexClient) PendingOrders(req *PendingOrderReq) ([]Order, error) {
+	res := new(GetOrderInfoResp)
+	v, _ := query.Values(req)
+	url := _TradePendingOrders + "?" + v.Encode()
+	err := o.get(url, res)
+	if err != nil {
+		logging.Errorf("OkexClient|PendingOrders error,err:%v", err)
+	}
+	return res.Data, nil
 }
 
 // ##########################################################

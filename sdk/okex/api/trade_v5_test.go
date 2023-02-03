@@ -38,3 +38,12 @@ func TestOrderInfo(t *testing.T) {
 	convey.So(err, convey.ShouldBeNil)
 	convey.So(order, convey.ShouldNotBeNil)
 }
+
+func TestPendingOrders(t *testing.T) {
+	instId := "BTC-USD-230331"
+	orders, err := NewOkexClient().PendingOrders(&PendingOrderReq{
+		InstId: instId,
+	})
+	convey.So(err, convey.ShouldBeNil)
+	convey.So(orders, convey.ShouldNotBeNil)
+}

@@ -112,3 +112,16 @@ type (
 		SMsg    string `json:"sMsg"`
 	}
 )
+
+type (
+	PendingOrderReq struct {
+		InstType okex.InstrumentType `url:"instType"`
+		Uly      string              `url:"uly"`
+		InstId   string              `url:"instId"`
+		OrdType  okex.OrderType      `url:"ordType"`
+		State    okex.OrderState     `url:"state"`
+		After    string              `url:"after"`
+		Before   string              `url:"before"`
+		Limit    string              `url:"limit"`
+	}
+)
