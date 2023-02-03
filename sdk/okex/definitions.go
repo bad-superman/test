@@ -2,6 +2,7 @@ package okex
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -305,6 +306,11 @@ const (
 
 func (t JSONTime) String() string { return time.Time(t).String() }
 
+func (t JSONTime) MarshalJSON() ([]byte, error) {
+	_t := time.Time(t)
+	return _t.MarshalJSON()
+}
+
 func (t *JSONTime) UnmarshalJSON(s []byte) (err error) {
 	r := strings.Replace(string(s), `"`, ``, -1)
 	if r == "" {
@@ -331,6 +337,10 @@ func (t *JSONFloat64) UnmarshalJSON(s []byte) (err error) {
 	*(*float64)(t) = q
 	return
 }
+func (t *JSONFloat64) MarshalJSON() ([]byte, error) {
+	_t := strconv.FormatFloat(float64(*t), 'f', -1, 64)
+	return []byte(_t), nil
+}
 func (t *JSONInt64) UnmarshalJSON(s []byte) (err error) {
 	r := strings.Replace(string(s), `"`, ``, -1)
 	if r == "" {
@@ -343,6 +353,9 @@ func (t *JSONInt64) UnmarshalJSON(s []byte) (err error) {
 	}
 	*(*int64)(t) = q
 	return
+}
+func (t *JSONInt64) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%d"`, *t)), nil
 }
 func (t *WithdrawalState) UnmarshalJSON(s []byte) (err error) {
 	r := strings.Replace(string(s), `"`, ``, -1)

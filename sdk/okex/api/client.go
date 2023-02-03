@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -43,24 +42,25 @@ func NewOkexClient() *OkexClient {
 // OK-ACCESS-TIMESTAMP发起请求的时间（UTC），如：2020-12-08T09:08:57.715Z
 // OK-ACCESS-PASSPHRASE您在创建API密钥时指定的Passphrase。
 func (o *OkexClient) post(url string, data interface{}, result interface{}) error {
-	bodyByte, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	body := bytes.NewReader(bodyByte)
-	return o.request(http.MethodPost, url, body, result)
+	return o.request(http.MethodPost, url, data, result)
 }
 
 func (o *OkexClient) get(url string, result interface{}) error {
 	return o.request(http.MethodGet, url, nil, result)
 }
-func (o *OkexClient) request(method string, url string, body io.Reader, result interface{}) error {
+func (o *OkexClient) request(method string, url string, data interface{}, result interface{}) error {
 	var (
 		ts = utils.IsoTime()
-		s  = o.sign(ts, http.MethodGet, url, "")
 	)
+	bodyByte, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	body := bytes.NewReader(bodyByte)
+	s := o.sign(ts, method, url, string(bodyByte))
+
 	url = _okexRestApiHost + url
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		logging.Errorf("OkexClient|NewRequest error,err:%v", err)
 	}
@@ -68,6 +68,7 @@ func (o *OkexClient) request(method string, url string, body io.Reader, result i
 	req.Header.Add("OK-ACCESS-SIGN", s)
 	req.Header.Add("OK-ACCESS-TIMESTAMP", ts)
 	req.Header.Add("OK-ACCESS-PASSPHRASE", o.passphrase)
+	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
 
 	resp, err := o.client.Do(req)
 	if err != nil {

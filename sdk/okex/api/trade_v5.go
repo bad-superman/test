@@ -58,18 +58,15 @@ func (o *OkexClient) CancelOrder(instId, ordId, clOrdId string) error {
 
 // 获取订单信息
 // https://aws.okx.com/docs-v5/zh/#rest-api-trade-get-order-details
-func (o *OkexClient) GetOrderInfo(instId, ordId, clOrdId string) ([]Order, error) {
-	req := GetOrderInfoReq{
-		InstID:  instId,
-		OrdID:   ordId,
-		ClOrdID: clOrdId,
-	}
+func (o *OkexClient) GetOrderInfo(instId, ordId, clOrdId string) (Order, error) {
 	res := new(GetOrderInfoResp)
-	err := o.post(_tradeOrderURL, req, res)
+	url := fmt.Sprintf("%s?ordId=%s&instId=%s&clOrdId=%s",
+		_tradeOrderURL, ordId, instId, clOrdId)
+	err := o.get(url, res)
 	if err != nil {
 		logging.Errorf("OkexClient|GetOrderInfo error,err:%v", err)
 	}
-	return res.Data, nil
+	return res.Data[0], nil
 }
 
 // 修改订单
@@ -103,6 +100,10 @@ func (o *OkexClient) ModifyOrder(req *ModifyOrderReq) error {
 // posSide 在双向持仓模式下必填，且仅可选择 long 或 short
 // sz 委托数量，指合约张数 btc 100u一张 其他10u
 // px 价格
+// 开多：买入开多（side 填写 buy； posSide 填写 long ）
+// 开空：卖出开空（side 填写 sell； posSide 填写 short ）
+// 平多：卖出平多（side 填写 sell；posSide 填写 long ）
+// 平空：买入平空（side 填写 buy； posSide 填写 short ）
 func (o *OkexClient) TradeFuturesOrder(instId string,
 	tdMode okex.TradeMode,
 	side okex.OrderSide,

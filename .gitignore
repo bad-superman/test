@@ -1,2 +1,6 @@
 *.log
 data/test.log
+*.toml
+*/*.toml
+**/*.log
+plugin

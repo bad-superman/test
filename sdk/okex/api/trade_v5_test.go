@@ -11,13 +11,13 @@ func TestTrade(t *testing.T) {
 	o := NewOkexClient()
 
 	var (
-		instId  = "BTC-USD-230331"
-		tdMode  = okex.TradeCrossMode
-		side    = okex.OrderBuy
-		posSide okex.PositionSide
-		sz      okex.JSONFloat64 = 1
-		px      okex.JSONFloat64 = 1000
-		ordType                  = okex.OrderLimit
+		instId                    = "BTC-USD-230331"
+		tdMode                    = okex.TradeCrossMode
+		side                      = okex.OrderBuy
+		posSide okex.PositionSide = okex.PositionLongSide
+		sz      okex.JSONFloat64  = 1
+		px      okex.JSONFloat64  = 1000
+		ordType                   = okex.OrderLimit
 	)
 
 	convey.Convey("合约限价单", t, func() {
@@ -29,4 +29,12 @@ func TestTrade(t *testing.T) {
 		convey.So(err, convey.ShouldBeNil)
 	})
 
+}
+
+func TestOrderInfo(t *testing.T) {
+	instId := "BTC-USD-230331"
+	orderID := "541647707375902721"
+	order, err := NewOkexClient().GetOrderInfo(instId, orderID, "")
+	convey.So(err, convey.ShouldBeNil)
+	convey.So(order, convey.ShouldNotBeNil)
 }
