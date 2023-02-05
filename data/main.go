@@ -72,7 +72,7 @@ func InterestRateUpload() {
 		tags := map[string]string{
 			"path": "btc_usdt_spot-btc_usd_quater",
 		}
-		influxDB.WritePoint("interest_rate", fields, tags)
+		influxDB.WritePoint("interest_rate", fields, tags, time.Now())
 	}
 }
 

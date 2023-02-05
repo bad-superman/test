@@ -9,10 +9,13 @@ import (
 )
 
 const (
-	_tradeOrderURL       = "/api/v5/trade/order"
-	_tradeCancelOrderURL = "/api/v5/trade/cancel-order"
-	_tradeAmendOrder     = "/api/v5/trade/amend-order"
-	_TradePendingOrders  = "/api/v5/trade/orders-pending"
+	_tradeOrderURL            = "/api/v5/trade/order"
+	_tradeBatchOrdersUrl      = "/api/v5/trade/batch-orders"
+	_tradeCancelOrderURL      = "/api/v5/trade/cancel-order"
+	_tradeCancelBatchOrderURL = "/api/v5/trade/cancel-batch-orders"
+	_tradeAmendOrder          = "/api/v5/trade/amend-order"
+	_tradePendingOrders       = "/api/v5/trade/orders-pending"
+	_tradeFillsHistoryURL     = "/api/v5/trade/fills-history"
 )
 
 // 下单
@@ -24,6 +27,18 @@ func (o *OkexClient) TradeOrder(req *Order) ([]TradeOrderData, error) {
 	err := o.post(_tradeOrderURL, req, res)
 	if err != nil {
 		logging.Errorf("OkexClient|TradeOrder error,err:%v", err)
+		return res.Data, err
+	}
+	return res.Data, nil
+}
+
+// 批量下单
+// https://aws.okx.com/docs-v5/zh/#rest-api-trade-place-multiple-orders
+func (o *OkexClient) TradeBatchOrders(req []Order) ([]TradeOrderData, error) {
+	res := new(TradeOrderResp)
+	err := o.post(_tradeBatchOrdersUrl, req, res)
+	if err != nil {
+		logging.Errorf("OkexClient|TradeBatchOrders error,err:%v", err)
 		return res.Data, err
 	}
 	return res.Data, nil
@@ -41,11 +56,11 @@ func (o *OkexClient) CancelOrder(instId, ordId, clOrdId string) error {
 	res := new(CancelOrderResp)
 	err := o.post(_tradeCancelOrderURL, req, res)
 	if err != nil {
-		logging.Errorf("OkexClient|TradeOrder error,err:%v", err)
+		logging.Errorf("OkexClient|CancelOrder error,err:%v", err)
 		return err
 	}
 	if len(res.Data) == 0 {
-		logging.Error("OkexClient|TradeOrder error,no data")
+		logging.Error("OkexClient|CancelOrder error,no data")
 		return err
 	}
 	code := res.Data[0].SCode
@@ -54,7 +69,28 @@ func (o *OkexClient) CancelOrder(instId, ordId, clOrdId string) error {
 		return nil
 	}
 	err = fmt.Errorf("code:%s msg:%s", code, msg)
-	logging.Errorf("OkexClient|ModifyOrder error,err:%v", err)
+	logging.Errorf("OkexClient|CancelOrder error,err:%v", err)
+	return err
+}
+
+// 批量撤单
+// https://aws.okx.com/docs-v5/zh/#rest-api-trade-cancel-multiple-orders
+func (o *OkexClient) CancelBatchOrder(req []CancelOrderReq) error {
+	res := new(CancelOrderResp)
+	err := o.post(_tradeCancelBatchOrderURL, req, res)
+	if err != nil {
+		logging.Errorf("OkexClient|CancelBatchOrder error,err:%v", err)
+		return err
+	}
+	if len(res.Data) == 0 {
+		logging.Error("OkexClient|CancelBatchOrder error,no data")
+		return err
+	}
+	if res.Code == "0" {
+		return nil
+	}
+	err = fmt.Errorf("code:%s msg:%s", res.Code, res.Msg)
+	logging.Errorf("OkexClient|CancelBatchOrder error,err:%v", err)
 	return err
 }
 
@@ -99,10 +135,27 @@ func (o *OkexClient) ModifyOrder(req *ModifyOrderReq) error {
 func (o *OkexClient) PendingOrders(req *PendingOrderReq) ([]Order, error) {
 	res := new(GetOrderInfoResp)
 	v, _ := query.Values(req)
-	url := _TradePendingOrders + "?" + v.Encode()
+	url := _tradePendingOrders + "?" + v.Encode()
 	err := o.get(url, res)
 	if err != nil {
 		logging.Errorf("OkexClient|PendingOrders error,err:%v", err)
+	}
+	return res.Data, nil
+}
+
+// 获取成交明细（近三个月）
+// https://aws.okx.com/docs-v5/zh/#rest-api-trade-get-transaction-details-last-3-months
+func (o *OkexClient) FillsHistory(instType okex.InstrumentType, instId string) ([]Order, error) {
+	res := new(GetOrderInfoResp)
+	req := FillsHistoryReq{
+		InstType: instType,
+		InstId:   instId,
+	}
+	v, _ := query.Values(req)
+	url := _tradeFillsHistoryURL + "?" + v.Encode()
+	err := o.get(url, res)
+	if err != nil {
+		logging.Errorf("OkexClient|FillsHistory error,err:%v", err)
 	}
 	return res.Data, nil
 }
@@ -119,6 +172,7 @@ func (o *OkexClient) PendingOrders(req *PendingOrderReq) ([]Order, error) {
 // 平多：卖出平多（side 填写 sell；posSide 填写 long ）
 // 平空：买入平空（side 填写 buy； posSide 填写 short ）
 func (o *OkexClient) TradeFuturesOrder(instId string,
+	clOrdId string,
 	tdMode okex.TradeMode,
 	side okex.OrderSide,
 	posSide okex.PositionSide,
@@ -127,6 +181,7 @@ func (o *OkexClient) TradeFuturesOrder(instId string,
 	ordType okex.OrderType) (*TradeOrderData, error) {
 	req := &Order{
 		InstID:  instId,
+		ClOrdID: clOrdId,
 		TdMode:  tdMode,
 		Side:    side,
 		PosSide: posSide,

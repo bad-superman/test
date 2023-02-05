@@ -30,10 +30,10 @@ func NewInfluxDB() *InfluxDB {
 
 // 添加记录
 // measurement 类似sql中的表名
-func (i *InfluxDB) WritePoint(measurement string, fields map[string]interface{}, tags map[string]string) error {
+func (i *InfluxDB) WritePoint(measurement string, fields map[string]interface{}, tags map[string]string, ts time.Time) error {
 	writeAPI := i.client.WriteAPIBlocking(INFLUXDB_ORG, INFLUXDB_BUCKET)
 
-	point := write.NewPoint(measurement, tags, fields, time.Now())
+	point := write.NewPoint(measurement, tags, fields, ts)
 	if err := writeAPI.WritePoint(context.Background(), point); err != nil {
 		logging.Errorf("InfluxDB|WritePoint error,err:%v", err)
 		return err

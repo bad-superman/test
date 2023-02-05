@@ -1,6 +1,8 @@
 package process
 
 import (
+	"time"
+
 	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/logging"
@@ -58,7 +60,7 @@ func (d *DataCron) OkexOTCCron() {
 		"coin_quote": "USDT_CNY",
 	}
 
-	err = d.influxDb.WritePoint("otc_price", fields, tags)
+	err = d.influxDb.WritePoint("otc_price", fields, tags, time.Now())
 	if err != nil {
 		logging.Errorf("DataCron|C2COrderBooks WritePoint error,err:%v", err)
 		return
@@ -89,7 +91,7 @@ func (d *DataCron) OkexExchangeRate() {
 		"coin_quote": "USD_CNY",
 	}
 
-	err = d.influxDb.WritePoint("exchange_rate", fields, tags)
+	err = d.influxDb.WritePoint("exchange_rate", fields, tags, time.Now())
 	if err != nil {
 		logging.Errorf("DataCron|ExchangeRate WritePoint error,err:%v", err)
 		return

@@ -125,3 +125,13 @@ type (
 		Limit    string              `url:"limit"`
 	}
 )
+
+type FillsHistoryReq struct {
+	InstType okex.InstrumentType `url:"instType"`
+	InstId   string              `url:"instId"`
+	After    string              `url:"after"`
+	Before   string              `url:"before"`
+	Begin    string              `url:"begin"`
+	End      string              `url:"end"`
+	Limit    string              `url:"limit"`
+}

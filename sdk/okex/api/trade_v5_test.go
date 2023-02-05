@@ -21,7 +21,7 @@ func TestTrade(t *testing.T) {
 	)
 
 	convey.Convey("合约限价单", t, func() {
-		order, err := o.TradeFuturesOrder(instId, tdMode, side, posSide, sz, px, ordType)
+		order, err := o.TradeFuturesOrder(instId, "", tdMode, side, posSide, sz, px, ordType)
 		convey.So(err, convey.ShouldBeNil)
 		convey.So(order, convey.ShouldNotBeNil)
 

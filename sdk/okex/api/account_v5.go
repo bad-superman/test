@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bad-superman/test/logging"
+	"github.com/bad-superman/test/sdk/okex"
 )
 
 const (
@@ -48,7 +49,7 @@ func (o *OkexClient) AccountBalance(coins []string) ([]AccountBalanceData, error
 // posId 持仓ID
 // 支持多个posId查询（不超过20个），半角逗号分割
 // https://aws.okx.com/docs-v5/zh/#rest-api-account-get-positions
-func (o *OkexClient) AccountPositions(instType string, instId, posId []string) ([]AccountPositionsData, error) {
+func (o *OkexClient) AccountPositions(instType okex.InstrumentType, instId, posId []string) ([]AccountPositionsData, error) {
 	url := _accountPositionsURL
 
 	params := make([]string, 0)
@@ -57,7 +58,7 @@ func (o *OkexClient) AccountPositions(instType string, instId, posId []string) (
 		params = append(params, param)
 	}
 	if len(instId) > 0 {
-		param := fmt.Sprintf("instType=%s", strings.Join(instId, ","))
+		param := fmt.Sprintf("instId=%s", strings.Join(instId, ","))
 		params = append(params, param)
 	}
 	if len(posId) > 0 {
