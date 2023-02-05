@@ -224,9 +224,9 @@ func (l *Logger) openNew() error {
 		}
 
 		// this is a no-op anywhere but linux
-		if err := chown(name, info); err != nil {
-			return err
-		}
+		// if err := chown(name, info); err != nil {
+		// 	return err
+		// }
 	}
 
 	// we use truncate here because this should only get called when we've moved
@@ -477,9 +477,9 @@ func compressLogFile(src, dst string) (err error) {
 		return fmt.Errorf("failed to stat log file: %v", err)
 	}
 
-	if err := chown(dst, fi); err != nil {
-		return fmt.Errorf("failed to chown compressed log file: %v", err)
-	}
+	// if err := chown(dst, fi); err != nil {
+	// 	return fmt.Errorf("failed to chown compressed log file: %v", err)
+	// }
 
 	// If this file already exists, we presume it was created by
 	// a previous attempt to compress the log file.
