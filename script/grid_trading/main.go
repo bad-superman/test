@@ -66,7 +66,7 @@ func (g *GRIDTrade) GetPosSide() (
 	bidPosSide := okex.PositionLongSide
 	// 有多仓
 	// 卖出平多
-	if g.shortPos > 0 {
+	if g.longPos > 0 {
 		askPosSide = okex.PositionLongSide
 	}
 	// 有空仓
