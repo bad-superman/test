@@ -7,6 +7,8 @@ import (
 
 type Config struct {
 	OkexConfigs []*OkexConfig `toml:"okex_config"`
+
+	DTalkToken string `toml:"dingtalk_token"`
 }
 
 type OkexConfig struct {

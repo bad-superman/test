@@ -1,12 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/logging"
+	v2 "github.com/bad-superman/test/sdk/dingtalk/v2"
 	"github.com/bad-superman/test/sdk/okex"
 	okex_api "github.com/bad-superman/test/sdk/okex/api"
+)
+
+const (
+	_filledInfo   = "### 成交信息\n #### side:%s pos_side:%s price:%v\n"
+	_positionInfo = "### 持仓信息\n #### long:%d short:%d\n"
+	_pendingInfo  = "### 挂单信息\n #### ask pos_slide:%s price:%v\n#### bid pos_slide:%s price:%v\n"
 )
 
 func init() {
@@ -15,6 +23,7 @@ func init() {
 
 type GRIDTrade struct {
 	client   *okex_api.OkexClient
+	dClient  *v2.Manager
 	instId   string
 	longPos  int64
 	shortPos int64
@@ -120,16 +129,28 @@ func (g *GRIDTrade) Trading() {
 
 	// 更新持仓
 	g.GetBalance()
-	askOrderID, bidOrderID, err := g.UpdateOrders(initPrice)
+	askOrder, bidOrder, err := g.UpdateOrders(initPrice)
 	if err != nil {
 		logging.Panicf("UpdateOrders error,err:%v", err)
 	}
+	content := ""
+	content += fmt.Sprintf(_positionInfo, g.longPos, g.shortPos)
+	content += fmt.Sprintf(_pendingInfo,
+		askOrder.PosSide, askOrder.Px,
+		bidOrder.PosSide, bidOrder.Px,
+	)
+	// 发送钉钉通知
+	mark := v2.NewMarkDown()
+	mark.Markdown.Title = "那就不拖拉拉夫斯基"
+	mark.Markdown.Text = content
+	g.dClient.SendMsg(nil, mark)
 	for {
-		askOrderInfo, err := g.client.GetOrderInfo(g.instId, "", askOrderID)
+		content := ""
+		askOrderInfo, err := g.client.GetOrderInfo(g.instId, "", askOrder.ClOrdID)
 		if err != nil {
 			continue
 		}
-		bidOrderInfo, err := g.client.GetOrderInfo(g.instId, "", bidOrderID)
+		bidOrderInfo, err := g.client.GetOrderInfo(g.instId, "", bidOrder.ClOrdID)
 		if err != nil {
 			continue
 		}
@@ -140,7 +161,8 @@ func (g *GRIDTrade) Trading() {
 		}
 		// 卖单成了
 		if askOrderInfo.State == okex.OrderFilled {
-			initPrice = float64(askOrderInfo.Px)
+			initPrice = float64(askOrder.Px)
+			content += fmt.Sprintf(_filledInfo, askOrderInfo.Side, askOrderInfo.PosSide, askOrderInfo.FillPx)
 		} else {
 			err = g.client.CancelOrder(g.instId, askOrderInfo.InstID, askOrderInfo.ClOrdID)
 			if err != nil {
@@ -149,7 +171,8 @@ func (g *GRIDTrade) Trading() {
 			}
 		}
 		if bidOrderInfo.State == okex.OrderFilled {
-			initPrice = float64(bidOrderInfo.Px)
+			initPrice = float64(bidOrder.Px)
+			content += fmt.Sprintf(_filledInfo, bidOrderInfo.Side, bidOrderInfo.PosSide, bidOrderInfo.FillPx)
 		} else {
 			err = g.client.CancelOrder(g.instId, bidOrderInfo.InstID, bidOrderInfo.ClOrdID)
 			if err != nil {
@@ -163,24 +186,34 @@ func (g *GRIDTrade) Trading() {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		askTmpOrderID, bidTmpOrderID, err := g.UpdateOrders(initPrice)
+		content += fmt.Sprintf(_positionInfo, g.longPos, g.shortPos)
+		askTmpOrder, bidTmpOrder, err := g.UpdateOrders(initPrice)
 		if err != nil {
 			time.Sleep(10 * time.Second)
 			continue
 		}
-		askOrderID, bidOrderID = askTmpOrderID, bidTmpOrderID
+		askOrder, bidOrder = askTmpOrder, bidTmpOrder
+		content += fmt.Sprintf(_pendingInfo,
+			askOrder.PosSide, askOrder.Px,
+			bidOrder.PosSide, bidOrder.Px,
+		)
+		// 发送钉钉通知
+		mark := v2.NewMarkDown()
+		mark.Markdown.Title = "那就不拖拉拉夫斯基"
+		mark.Markdown.Text = content
+		g.dClient.SendMsg(nil, mark)
 	}
 }
 
-func (g *GRIDTrade) UpdateOrders(price float64) (askOrderID, bidOrderID string, err error) {
+func (g *GRIDTrade) UpdateOrders(price float64) (askOrder, bidOrder okex_api.Order, err error) {
 	askPrice, bidPrice := g.GetOrderPrice(price)
 	askSide, bidSide := okex.OrderSell, okex.OrderBuy
 	askPosSide, bidPosSide := g.GetPosSide()
-	askOrderID = g.GetClOrderID(string(askSide), string(askPosSide))
-	bidOrderID = g.GetClOrderID(string(bidSide), string(bidPosSide))
+	askOrderID := g.GetClOrderID(string(askSide), string(askPosSide))
+	bidOrderID := g.GetClOrderID(string(bidSide), string(bidPosSide))
 	logging.Infof("UpdateOrders,ask side:%v posSide:%s price:%f", askSide, askPosSide, askPrice)
 	logging.Infof("UpdateOrders,bid side:%v posSide:%s price:%f", bidSide, bidPosSide, bidPrice)
-	askOrder := okex_api.Order{
+	askOrder = okex_api.Order{
 		InstID:  g.instId,
 		ClOrdID: askOrderID,
 		TdMode:  okex.TradeCrossMode,
@@ -190,7 +223,7 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrderID, bidOrderID string, 
 		Px:      okex.JSONFloat64(askPrice),
 		OrdType: okex.OrderLimit,
 	}
-	bidOrder := okex_api.Order{
+	bidOrder = okex_api.Order{
 		InstID:  g.instId,
 		ClOrdID: bidOrderID,
 		TdMode:  okex.TradeCrossMode,
@@ -206,18 +239,26 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrderID, bidOrderID string, 
 	})
 	if err != nil {
 		logging.Panicf("UpdateOrders error,err:%v", err)
-		return askOrderID, bidOrderID, err
+		return askOrder, bidOrder, err
 	}
 	logging.Infof("UpdateOrders update ok,askOrderID:%s,bidOrderID:%s",
 		askOrderID, bidOrderID)
-	return askOrderID, bidOrderID, err
+	return askOrder, bidOrder, err
 }
 
 func main() {
 	c := conf.GetConfig()
 	gridTrade := &GRIDTrade{
-		client: okex_api.NewOkexClientByName(c, "test"),
-		instId: "BTC-USD-230331",
+		client:  okex_api.NewOkexClientByName(c, "test"),
+		dClient: v2.New(c.DTalkToken),
+		instId:  "BTC-USD-230331",
 	}
+	defer func() {
+		// 发送钉钉通知
+		mark := v2.NewMarkDown()
+		mark.Markdown.Title = "那就不拖拉拉夫斯基"
+		mark.Markdown.Text = "## grid trading script exit!!!!!!"
+		gridTrade.dClient.SendMsg(nil, mark)
+	}()
 	gridTrade.Trading()
 }
