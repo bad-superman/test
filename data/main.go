@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"strconv"
@@ -62,9 +61,9 @@ func InterestRateUpload() {
 		gap_forward := (btc_usd_bid - btc_usdt_ask) / btc_usdt_ask * 100
 		// 反向基差：feature买 spot卖
 		gap_reverse := (btc_usdt_bid - btc_usd_ask) / btc_usd_ask * 100
-		log.Printf("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
-		log.Printf("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
-		log.Printf("gap_z:%.2f gap_f:%.2f\n", gap_forward, gap_reverse)
+		logging.Infof("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
+		logging.Infof("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
+		logging.Infof("gap_z:%.2f gap_f:%.2f\n", gap_forward, gap_reverse)
 		fields := map[string]interface{}{
 			"forward": gap_forward,
 			"reverse": gap_reverse,
