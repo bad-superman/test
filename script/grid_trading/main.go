@@ -156,7 +156,7 @@ func (g *GRIDTrade) Trading() {
 		}
 		// 未成交
 		if askOrderInfo.State == okex.OrderLive && bidOrderInfo.State == okex.OrderLive {
-			time.Sleep(30 * time.Second)
+			time.Sleep(10 * time.Second)
 			continue
 		}
 		// 卖单成了
