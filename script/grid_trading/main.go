@@ -163,8 +163,8 @@ func (g *GRIDTrade) Trading() {
 		if askOrderInfo.State == okex.OrderFilled {
 			initPrice = float64(askOrder.Px)
 			content += fmt.Sprintf(_filledInfo, askOrderInfo.Side, askOrderInfo.PosSide, askOrderInfo.FillPx)
-		} else {
-			err = g.client.CancelOrder(g.instId, askOrderInfo.InstID, askOrderInfo.ClOrdID)
+		} else if askOrderInfo.State != okex.OrderCancel {
+			err = g.client.CancelOrder(g.instId, askOrderInfo.OrdID, askOrderInfo.ClOrdID)
 			if err != nil {
 				time.Sleep(10 * time.Second)
 				continue
@@ -173,8 +173,8 @@ func (g *GRIDTrade) Trading() {
 		if bidOrderInfo.State == okex.OrderFilled {
 			initPrice = float64(bidOrder.Px)
 			content += fmt.Sprintf(_filledInfo, bidOrderInfo.Side, bidOrderInfo.PosSide, bidOrderInfo.FillPx)
-		} else {
-			err = g.client.CancelOrder(g.instId, bidOrderInfo.InstID, bidOrderInfo.ClOrdID)
+		} else if bidOrderInfo.State != okex.OrderCancel {
+			err = g.client.CancelOrder(g.instId, bidOrderInfo.OrdID, bidOrderInfo.ClOrdID)
 			if err != nil {
 				time.Sleep(10 * time.Second)
 				continue
