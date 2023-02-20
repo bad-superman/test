@@ -1,5 +1,6 @@
 *.log
 data/test.log
+**/nohup.out
 *.toml
 */*.toml
 **/*.log
