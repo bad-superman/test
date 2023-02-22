@@ -103,6 +103,10 @@ func (o *OkexClient) GetOrderInfo(instId, ordId, clOrdId string) (Order, error) 
 	err := o.get(url, res)
 	if err != nil {
 		logging.Errorf("OkexClient|GetOrderInfo error,err:%v", err)
+		return Order{}, err
+	}
+	if len(res.Data) == 0 {
+		return Order{}, fmt.Errorf("no data")
 	}
 	return res.Data[0], nil
 }
