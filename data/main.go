@@ -39,7 +39,7 @@ func DepthCallback(d interface{}) error {
 		btc_usdt_bid = bid
 	}
 
-	if data.Arg.InstId == "BTC-USD-230331" {
+	if data.Arg.InstId == "BTC-USD-230630" {
 		btc_usd_ask = ask
 		btc_usd_bid = bid
 	}
@@ -105,7 +105,7 @@ START:
 
 	args1 := okex_ws_sdk.DepthArg{
 		OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
-		InstId:    "BTC-USD-230331",
+		InstId:    "BTC-USD-230630",
 	}
 	agent.SubscribeV5([]interface{}{args, args1})
 

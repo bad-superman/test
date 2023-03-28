@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -22,11 +23,12 @@ func init() {
 }
 
 type GRIDTrade struct {
-	client   *okex_api.OkexClient
-	dClient  *v2.Manager
-	instId   string
-	longPos  int64
-	shortPos int64
+	client    *okex_api.OkexClient
+	dClient   *v2.Manager
+	instId    string
+	longPos   int64
+	shortPos  int64
+	initPrice float64
 }
 
 func (g *GRIDTrade) GetBalance() (longPos int64, shortPos int64, err error) {
@@ -60,7 +62,7 @@ func (g *GRIDTrade) GetClOrderID(side, posSide string) string {
 
 func (g *GRIDTrade) GetOrderPrice(price float64) (float64, float64) {
 	ask := float64(int(price * 1.05))
-	bid := float64(int(price * 0.95))
+	bid := float64(int(price / 1.05))
 	return ask, bid
 }
 
@@ -116,6 +118,9 @@ func (g *GRIDTrade) InitOrderPrice() (price float64, err error) {
 		logging.Errorf("GRIDTrade|InitOrder FillsHistory error,err:%v", err)
 		return
 	}
+	if orders[0].FillSz != 1 {
+		return 0, nil
+	}
 	price = float64(orders[0].FillPx)
 	return price, nil
 }
@@ -125,6 +130,12 @@ func (g *GRIDTrade) Trading() {
 	initPrice, err := g.InitOrderPrice()
 	if err != nil {
 		logging.Panicf("InitOrderPrice error,err:%v", err)
+	}
+	// 指定初始价格
+	if initPrice == 0 && g.initPrice != 0 {
+		initPrice = g.initPrice
+	} else {
+		logging.Panic("InitOrderPrice is zero")
 	}
 
 	// 更新持仓
@@ -247,11 +258,16 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrder, bidOrder okex_api.Ord
 }
 
 func main() {
+	var initPrice = flag.Float64("price", 0, "-price init trade price")
+	var instId = flag.String("instid", "", "-instid grid trade instance BTC-USD-230630")
+	flag.Parse()
+	fmt.Printf("init price:%f,instid:%s", *initPrice, *instId)
 	c := conf.GetConfig()
 	gridTrade := &GRIDTrade{
-		client:  okex_api.NewOkexClientByName(c, "test"),
-		dClient: v2.New(c.DTalkToken),
-		instId:  "BTC-USD-230331",
+		client:    okex_api.NewOkexClientByName(c, "test"),
+		dClient:   v2.New(c.DTalkToken),
+		instId:    *instId,
+		initPrice: *initPrice,
 	}
 	defer func() {
 		// 发送钉钉通知
