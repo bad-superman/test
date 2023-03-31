@@ -15,7 +15,7 @@ func InitLogger() {
 
 	encoder := getEncoder()
 	writeSyncer := getLogWriter()
-	core := zapcore.NewCore(encoder, writeSyncer, zapcore.DebugLevel)
+	core := zapcore.NewCore(encoder, writeSyncer, zapcore.InfoLevel)
 
 	// zap.AddCaller()  添加将调用函数信息记录到日志中的功能。
 	logger := zap.New(core, zap.AddCaller())
