@@ -27,7 +27,7 @@ var btc_usd_ask float64
 var btc_usd_bid float64
 
 func DepthCallback(d interface{}) error {
-	logging.Infof("GetDepth Msg: %s", d)
+	logging.Debug("GetDepth Msg: %s", d)
 	data, ok := d.(*okex_ws_sdk.WSDepthTableV5Response)
 	if !ok {
 		return nil
@@ -61,9 +61,9 @@ func InterestRateUpload() {
 		gap_forward := (btc_usd_bid - btc_usdt_ask) / btc_usdt_ask * 100
 		// 反向基差：feature买 spot卖
 		gap_reverse := (btc_usdt_bid - btc_usd_ask) / btc_usd_ask * 100
-		logging.Infof("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
-		logging.Infof("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
-		logging.Infof("gap_z:%.2f gap_f:%.2f\n", gap_forward, gap_reverse)
+		logging.Debugf("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
+		logging.Debugf("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
+		logging.Debugf("gap_z:%.2f gap_f:%.2f\n", gap_forward, gap_reverse)
 		fields := map[string]interface{}{
 			"forward": gap_forward,
 			"reverse": gap_reverse,
