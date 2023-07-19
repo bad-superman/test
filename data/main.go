@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -11,13 +12,22 @@ import (
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/data/process"
 	"github.com/bad-superman/test/logging"
+	"github.com/bad-superman/test/sdk/okex"
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
+	okex_api "github.com/bad-superman/test/sdk/okex/api"
 	okex_ws_sdk "github.com/bad-superman/test/sdk/okex/ws"
+)
+
+var (
+	_instruments = []string{"BTC"}
+	_okexClient  *okex_api.OkexClient
 )
 
 func init() {
 	// 初始化配置
 	conf.Init("./config.toml")
+	c := conf.GetConfig()
+	_okexClient = okex_api.NewOkexClientByName(c, "test")
 }
 
 var btc_usdt_ask float64
@@ -39,7 +49,7 @@ func DepthCallback(d interface{}) error {
 		btc_usdt_bid = bid
 	}
 
-	if data.Arg.InstId == "BTC-USD-230630" {
+	if data.Arg.InstId == "BTC-USD-230929" {
 		btc_usd_ask = ask
 		btc_usd_bid = bid
 	}
@@ -80,6 +90,14 @@ func main() {
 	process.NewDataCron().Run()
 	go InterestRateUpload()
 
+	// prepare instruments
+	InstId := make([]string, 0)
+	for _, instrument := range _instruments {
+		InstId = append(InstId, fmt.Sprintf("%s-USDT", instrument))
+		// get all future InstId
+		_okexClient.Instruments(okex.FuturesInstrument, fmt.Sprintf("%s-USD", instrument), "", "")
+	}
+
 	agent := &okex_ws_sdk.OKWSAgent{}
 	config := &okex_sdk.Config{
 		WSEndpoint:    okex_ws_sdk.WS_API_HOST,
@@ -105,22 +123,20 @@ START:
 
 	args1 := okex_ws_sdk.DepthArg{
 		OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
-		InstId:    "BTC-USD-230630",
+		InstId:    "BTC-USD-230929",
 	}
 	agent.SubscribeV5([]interface{}{args, args1})
 
-	signalCh := make(chan os.Signal)
+	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	for {
 		select {
 		case <-signalCh:
-			goto STOP
+			os.Exit(0)
 		case <-agent.IsStop():
 			logging.Errorf("stoped, goto restart")
 			goto START
 		}
 	}
-STOP:
-	agent.Stop()
 }
