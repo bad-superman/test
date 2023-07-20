@@ -40,7 +40,13 @@ func NewInfluxDB() *InfluxDB {
 // measurement 类似sql中的表名
 func (i *InfluxDB) WritePoint(measurement string, fields map[string]interface{}, tags map[string]string, ts time.Time) error {
 	point := influx.NewPoint(measurement, tags, fields, ts)
-	if err := i.client.WritePoints(context.Background(), INFLUXDB_BUCKET, point); err != nil {
+	return i.WritePoints([]*influx.Point{point})
+}
+
+// 批量添加记录
+// measurement 类似sql中的表名
+func (i *InfluxDB) WritePoints(points []*influx.Point) error {
+	if err := i.client.WritePoints(context.Background(), INFLUXDB_BUCKET, points...); err != nil {
 		logging.Errorf("InfluxDB|WritePoint error,err:%v", err)
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/InfluxCommunity/influxdb3-go/influx"
 	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/data/process"
@@ -16,11 +17,14 @@ import (
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
 	okex_api "github.com/bad-superman/test/sdk/okex/api"
 	okex_ws_sdk "github.com/bad-superman/test/sdk/okex/ws"
+	"github.com/muesli/cache2go"
 )
 
 var (
-	_instruments = []string{"BTC"}
-	_okexClient  *okex_api.OkexClient
+	_tokens        = []string{"BTC"}
+	_okexClient    *okex_api.OkexClient
+	_instrumentMap = make(map[string]*okex_api.InstrumentData)
+	_cache         = cache2go.Cache("data")
 )
 
 func init() {
@@ -42,17 +46,19 @@ func DepthCallback(d interface{}) error {
 	if !ok {
 		return nil
 	}
-	ask, _ := strconv.ParseFloat(data.Data[0].Asks[0][0], 64)
-	bid, _ := strconv.ParseFloat(data.Data[0].Bids[0][0], 64)
-	if data.Arg.InstId == "BTC-USDT" {
-		btc_usdt_ask = ask
-		btc_usdt_bid = bid
-	}
+	// store in memory cache,expire 5s
+	_cache.Add(data.Arg.InstId, 5*time.Second, data)
+	// ask, _ := strconv.ParseFloat(data.Data[0].Asks[0][0], 64)
+	// bid, _ := strconv.ParseFloat(data.Data[0].Bids[0][0], 64)
+	// if data.Arg.InstId == "BTC-USDT" {
+	// 	btc_usdt_ask = ask
+	// 	btc_usdt_bid = bid
+	// }
 
-	if data.Arg.InstId == "BTC-USD-230929" {
-		btc_usd_ask = ask
-		btc_usd_bid = bid
-	}
+	// if data.Arg.InstId == "BTC-USD-230929" {
+	// 	btc_usd_ask = ask
+	// 	btc_usd_bid = bid
+	// }
 	return nil
 }
 
@@ -61,27 +67,39 @@ func InterestRateUpload() {
 	c := time.Tick(15 * time.Second)
 	for {
 		<-c
-		if btc_usdt_ask == 0 || btc_usdt_bid == 0 {
-			continue
+		points := make([]*influx.Point, 0)
+		for instId, instrument := range _instrumentMap {
+			// get book data in cache
+			item, err := _cache.Value(instId)
+			if err != nil {
+				logging.Errorf("InterestRateUpload|get book data from cache error,instId:%d,err:%v", instId, err)
+				continue
+			}
+			v := item.Data()
+			depthData := v.(*okex_ws_sdk.WSDepthTableV5Response)
+			ask, _ := strconv.ParseFloat(depthData.Data[0].Asks[0][0], 64)
+			bid, _ := strconv.ParseFloat(depthData.Data[0].Bids[0][0], 64)
+			if ask <= 0 || bid <= 0 {
+				logging.Errorf("InterestRateUpload|book data zero,instId:%d,ask:%.2f,bid:%.2f", instId, ask, bid)
+				continue
+			}
+			fields := map[string]interface{}{
+				"instId": instId,
+				"ask":    ask,
+				"bid":    bid,
+			}
+			tags := map[string]string{
+				"instrument_type": string(instrument.InstType),
+				"alias":           string(instrument.Alias),
+			}
+			logging.Infof("InterestRateUpload|Point info,fields:%+v tags:%+v", fields, tags)
+			point := influx.NewPoint("book_data", tags, fields, time.Now())
+			points = append(points, point)
 		}
-		if btc_usd_ask == 0 || btc_usd_bid == 0 {
-			continue
+		err := influxDB.WritePoints(points)
+		if err != nil {
+			logging.Errorf("InterestRateUpload|WritePoints fail,err:%v", err)
 		}
-		// 正向基差：spot买 feature卖
-		gap_forward := (btc_usd_bid - btc_usdt_ask) / btc_usdt_ask * 100
-		// 反向基差：feature买 spot卖
-		gap_reverse := (btc_usdt_bid - btc_usd_ask) / btc_usd_ask * 100
-		logging.Debugf("btc_usdt_ask:%.2f btc_usdt_bid:%.2f\n", btc_usdt_ask, btc_usdt_bid)
-		logging.Debugf("btc_usd_ask:%.2f btc_usd_bid:%.2f\n", btc_usd_ask, btc_usd_bid)
-		logging.Debugf("gap_z:%.2f gap_f:%.2f\n", gap_forward, gap_reverse)
-		fields := map[string]interface{}{
-			"forward": gap_forward,
-			"reverse": gap_reverse,
-		}
-		tags := map[string]string{
-			"path": "btc_usdt_spot-btc_usd_quater",
-		}
-		influxDB.WritePoint("interest_rate", fields, tags, time.Now())
 	}
 }
 
@@ -91,11 +109,24 @@ func main() {
 	go InterestRateUpload()
 
 	// prepare instruments
-	InstId := make([]string, 0)
-	for _, instrument := range _instruments {
-		InstId = append(InstId, fmt.Sprintf("%s-USDT", instrument))
+	// InstId := make([]string, 0)
+	for _, token := range _tokens {
+		// spot instrument of USDT
+		InstId := fmt.Sprintf("%s-USDT", token)
+		_instrumentMap[InstId] = &okex_api.InstrumentData{
+			InstID:   InstId,
+			InstType: okex.SpotInstrument,
+		}
 		// get all future InstId
-		_okexClient.Instruments(okex.FuturesInstrument, fmt.Sprintf("%s-USD", instrument), "", "")
+		instruments, err := _okexClient.Instruments(okex.FuturesInstrument, fmt.Sprintf("%s-USD", token), "", "")
+		if err != nil {
+			logging.Errorf("get Instruments error,token:%s,err:%v", token, err)
+			logging.Sync()
+			os.Exit(0)
+		}
+		for _, instrument := range instruments {
+			_instrumentMap[instrument.InstID] = &instrument
+		}
 	}
 
 	agent := &okex_ws_sdk.OKWSAgent{}
