@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	_tokens        = []string{"BTC"}
+	_tokens        = []string{"BTC", "ETH"}
 	_okexClient    *okex_api.OkexClient
-	_instrumentMap = make(map[string]*okex_api.InstrumentData)
+	_instrumentMap = make(map[string]okex_api.InstrumentData)
 	_cache         = cache2go.Cache("data")
 )
 
@@ -34,12 +34,6 @@ func init() {
 	_okexClient = okex_api.NewOkexClientByName(c, "test")
 }
 
-var btc_usdt_ask float64
-var btc_usdt_bid float64
-
-var btc_usd_ask float64
-var btc_usd_bid float64
-
 func DepthCallback(d interface{}) error {
 	logging.Debug("GetDepth Msg: %s", d)
 	data, ok := d.(*okex_ws_sdk.WSDepthTableV5Response)
@@ -48,17 +42,6 @@ func DepthCallback(d interface{}) error {
 	}
 	// store in memory cache,expire 5s
 	_cache.Add(data.Arg.InstId, 5*time.Second, data)
-	// ask, _ := strconv.ParseFloat(data.Data[0].Asks[0][0], 64)
-	// bid, _ := strconv.ParseFloat(data.Data[0].Bids[0][0], 64)
-	// if data.Arg.InstId == "BTC-USDT" {
-	// 	btc_usdt_ask = ask
-	// 	btc_usdt_bid = bid
-	// }
-
-	// if data.Arg.InstId == "BTC-USD-230929" {
-	// 	btc_usd_ask = ask
-	// 	btc_usd_bid = bid
-	// }
 	return nil
 }
 
@@ -91,10 +74,15 @@ func InterestRateUpload() {
 			tags := map[string]string{
 				"instrument_type": string(instrument.InstType),
 				"alias":           string(instrument.Alias),
+				"uly":             instrument.Uly,
+				"inst_family":     instrument.InstFamily,
 			}
 			logging.Infof("InterestRateUpload|Point info,fields:%+v tags:%+v", fields, tags)
 			point := influx.NewPoint("book_data", tags, fields, time.Now())
 			points = append(points, point)
+		}
+		if len(points) == 0 {
+			return
 		}
 		err := influxDB.WritePoints(points)
 		if err != nil {
@@ -109,13 +97,15 @@ func main() {
 	go InterestRateUpload()
 
 	// prepare instruments
-	// InstId := make([]string, 0)
 	for _, token := range _tokens {
 		// spot instrument of USDT
 		InstId := fmt.Sprintf("%s-USDT", token)
-		_instrumentMap[InstId] = &okex_api.InstrumentData{
-			InstID:   InstId,
-			InstType: okex.SpotInstrument,
+		_instrumentMap[InstId] = okex_api.InstrumentData{
+			InstID:     InstId,
+			InstType:   okex.SpotInstrument,
+			Alias:      "spot",
+			Uly:        InstId,
+			InstFamily: InstId,
 		}
 		// get all future InstId
 		instruments, err := _okexClient.Instruments(okex.FuturesInstrument, fmt.Sprintf("%s-USD", token), "", "")
@@ -125,9 +115,18 @@ func main() {
 			os.Exit(0)
 		}
 		for _, instrument := range instruments {
-			_instrumentMap[instrument.InstID] = &instrument
+			_instrumentMap[instrument.InstID] = instrument
 		}
 	}
+
+	subArgs := make([]interface{}, 0)
+	for _, instrument := range _instrumentMap {
+		subArgs = append(subArgs, okex_ws_sdk.DepthArg{
+			OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
+			InstId:    instrument.InstID,
+		})
+	}
+	logging.Infof("main|subArgs:%+v", subArgs)
 
 	agent := &okex_ws_sdk.OKWSAgent{}
 	config := &okex_sdk.Config{
@@ -138,7 +137,6 @@ func main() {
 
 	// 设置base url
 	// agent.
-
 	// Step1: Start agent.
 START:
 	agent.Start(config)
@@ -147,16 +145,7 @@ START:
 
 	// Step2: Subscribe channel
 	// Step2.0: Subscribe public channel swap/depths successfully.
-	args := okex_ws_sdk.DepthArg{
-		OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
-		InstId:    "BTC-USDT",
-	}
-
-	args1 := okex_ws_sdk.DepthArg{
-		OpArgBase: okex_ws_sdk.OpArgBase{Channel: "books5"},
-		InstId:    "BTC-USD-230929",
-	}
-	agent.SubscribeV5([]interface{}{args, args1})
+	agent.SubscribeV5(subArgs)
 
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

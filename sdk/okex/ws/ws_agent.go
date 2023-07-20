@@ -20,10 +20,8 @@ import (
 
 	"log"
 	"os"
-	"os/signal"
 	"runtime/debug"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -87,7 +85,7 @@ func (a *OKWSAgent) Start(config *okex.Config) error {
 	a.hotDepthsMap = make(map[string]*WSHotDepths)
 	a.stopNotify = make(chan error)
 
-	signal.Notify(a.signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	// signal.Notify(a.signalCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go a.work()
 	go a.receive()
@@ -248,7 +246,9 @@ func (a *OKWSAgent) finalize() error {
 
 func (a *OKWSAgent) ping() {
 	msg := "ping"
-	log.Printf("Send Msg: %s", msg)
+	if a.config.IsPrint {
+		log.Printf("Send Msg: %s", msg)
+	}
 	a.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 

@@ -27,8 +27,8 @@ func NewDataCron() *DataCron {
 }
 
 func (d *DataCron) Run() {
-	d.cron.AddFunc("0 * * * * *", d.OkexOTCCron)
-	d.cron.AddFunc("0 * * * * *", d.OkexExchangeRate)
+	d.cron.AddFunc("0 */10 * * * *", d.OkexOTCCron)
+	d.cron.AddFunc("0 */10 * * * *", d.OkexExchangeRate)
 	d.cron.Start()
 }
 
