@@ -10,6 +10,12 @@ import (
 	// "github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
+// InfluxDB Client Interface
+type InfluxDBClient interface {
+	WritePoint(measurement string, fields map[string]interface{}, tags map[string]string, ts time.Time) error
+	WritePoints(points []*influx.Point) error
+}
+
 var (
 	INFLUXDB_TOKEN = "dzkAyPe-78NUZXmIhOL5WQP_aL2jgf-8giUPfif-hCbKczT39OMEYIJFWfgTnvdXV7POjKyjXb1_VMBqRMPJGQ=="
 	INFLUXDB_URL   = "https://eu-central-1-1.aws.cloud2.influxdata.com"
@@ -23,7 +29,7 @@ type InfluxDB struct {
 	client *influx.Client
 }
 
-func NewInfluxDB() *InfluxDB {
+func NewInfluxDB() InfluxDBClient {
 	client, err := influx.New(influx.Configs{
 		HostURL:   INFLUXDB_URL,
 		AuthToken: INFLUXDB_TOKEN,

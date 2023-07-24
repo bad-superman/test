@@ -6,7 +6,8 @@ import (
 )
 
 type Config struct {
-	OkexConfigs []*OkexConfig `toml:"okex_config"`
+	InfluxConfig InfluxConfig  `toml:"influx_config"`
+	OkexConfigs  []*OkexConfig `toml:"okex_config"`
 
 	DTalkToken string `toml:"dingtalk_token"`
 }
@@ -16,6 +17,13 @@ type OkexConfig struct {
 	ApiKey     string `toml:"api_key"`
 	SecretKey  string `toml:"secret_key"`
 	Passphrase string `toml:"passphrase"`
+}
+
+type InfluxConfig struct {
+	Token  string `toml:"token"`
+	URL    string `toml:"url"`
+	Org    string `toml:"org"`
+	Bucket string `toml:"bucket"`
 }
 
 var _config *Config = new(Config)

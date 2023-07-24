@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/InfluxCommunity/influxdb3-go/influx"
 	"github.com/bad-superman/test/conf"
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/data/process"
@@ -17,6 +16,7 @@ import (
 	okex_sdk "github.com/bad-superman/test/sdk/okex"
 	okex_api "github.com/bad-superman/test/sdk/okex/api"
 	okex_ws_sdk "github.com/bad-superman/test/sdk/okex/ws"
+	"github.com/influxdata/influxdb-client-go/v2/api/write"
 	"github.com/muesli/cache2go"
 )
 
@@ -45,12 +45,12 @@ func DepthCallback(d interface{}) error {
 	return nil
 }
 
-func InterestRateUpload() {
-	influxDB := dao.NewInfluxDB()
+func InterestRateUpload(config *conf.Config) {
+	influxDB := dao.NewInfluxDBV2(config)
 	c := time.Tick(15 * time.Second)
 	for {
 		<-c
-		points := make([]*influx.Point, 0)
+		points := make([]*write.Point, 0)
 		for instId, instrument := range _instrumentMap {
 			// get book data in cache
 			item, err := _cache.Value(instId)
@@ -78,7 +78,7 @@ func InterestRateUpload() {
 				"inst_family":     instrument.InstFamily,
 			}
 			logging.Infof("InterestRateUpload|Point info,fields:%+v tags:%+v", fields, tags)
-			point := influx.NewPoint("book_data", tags, fields, time.Now())
+			point := write.NewPoint("book_data", tags, fields, time.Now())
 			points = append(points, point)
 		}
 		if len(points) == 0 {
@@ -91,15 +91,44 @@ func InterestRateUpload() {
 	}
 }
 
-func main() {
-	// otc 数据
-	process.NewDataCron().Run()
-	go InterestRateUpload()
+// OKWSAgent SubscribeV5 every 5min
+func CronSubscribe(agent *okex_ws_sdk.OKWSAgent, args []interface{}) {
+	c := time.Tick(5 * time.Minute)
+	for {
+		<-c
+		err := agent.SubscribeV5(args)
+		if err != nil {
+			logging.Errorf("main|CronSubscribe error,err:%v", err)
+		}
+	}
+}
 
+// prepare instrument map
+func prepareInstrumentMap() {
 	// prepare instruments
 	for _, token := range _tokens {
 		// spot instrument of USDT
 		InstId := fmt.Sprintf("%s-USDT", token)
+		USDInstId := fmt.Sprintf("%s-USD", token)
+		// swap base USD
+		USDSwapInstId := fmt.Sprintf("%s-USD-SWAP", token)
+		_instrumentMap[USDSwapInstId] = okex_api.InstrumentData{
+			InstID:     USDSwapInstId,
+			InstType:   okex.SwapInstrument,
+			Alias:      "swap",
+			Uly:        USDInstId,
+			InstFamily: USDInstId,
+		}
+		// swap base USDT
+		USDTSwapInstId := fmt.Sprintf("%s-USDT-SWAP", token)
+		_instrumentMap[USDTSwapInstId] = okex_api.InstrumentData{
+			InstID:     USDTSwapInstId,
+			InstType:   okex.SwapInstrument,
+			Alias:      "swap",
+			Uly:        InstId,
+			InstFamily: InstId,
+		}
+		// spot
 		_instrumentMap[InstId] = okex_api.InstrumentData{
 			InstID:     InstId,
 			InstType:   okex.SpotInstrument,
@@ -107,7 +136,7 @@ func main() {
 			Uly:        InstId,
 			InstFamily: InstId,
 		}
-		// get all future InstId
+		// get all future InstId base USD
 		instruments, err := _okexClient.Instruments(okex.FuturesInstrument, fmt.Sprintf("%s-USD", token), "", "")
 		if err != nil {
 			logging.Errorf("get Instruments error,token:%s,err:%v", token, err)
@@ -117,8 +146,25 @@ func main() {
 		for _, instrument := range instruments {
 			_instrumentMap[instrument.InstID] = instrument
 		}
+		// get all future InstId base USDT
+		instruments, err = _okexClient.Instruments(okex.FuturesInstrument, fmt.Sprintf("%s-USDT", token), "", "")
+		if err != nil {
+			logging.Errorf("get Instruments error,token:%s,err:%v", token, err)
+			logging.Sync()
+			os.Exit(0)
+		}
+		for _, instrument := range instruments {
+			_instrumentMap[instrument.InstID] = instrument
+		}
 	}
+}
 
+func main() {
+	// otc 数据
+	process.NewDataCron().Run()
+	go InterestRateUpload(conf.GetConfig())
+
+	prepareInstrumentMap()
 	subArgs := make([]interface{}, 0)
 	for _, instrument := range _instrumentMap {
 		subArgs = append(subArgs, okex_ws_sdk.DepthArg{
@@ -134,7 +180,8 @@ func main() {
 		TimeoutSecond: 10,
 		IsPrint:       false,
 	}
-
+	// 定时订阅
+	go CronSubscribe(agent, subArgs)
 	// 设置base url
 	// agent.
 	// Step1: Start agent.

@@ -13,7 +13,7 @@ import (
 
 type DataCron struct {
 	cron       *cron.Cron
-	influxDb   *dao.InfluxDB
+	influxDb   *dao.InfluxDBV2
 	okexClient *okex_api.OkexClient
 }
 
@@ -21,7 +21,7 @@ func NewDataCron() *DataCron {
 	c := conf.GetConfig()
 	return &DataCron{
 		cron:       cron.New(),
-		influxDb:   dao.NewInfluxDB(),
+		influxDb:   dao.NewInfluxDBV2(c),
 		okexClient: okex_api.NewOkexClientByName(c, "test"),
 	}
 }
