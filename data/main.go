@@ -63,7 +63,7 @@ func InterestRateUpload(config *conf.Config) {
 			ask, _ := strconv.ParseFloat(depthData.Data[0].Asks[0][0], 64)
 			bid, _ := strconv.ParseFloat(depthData.Data[0].Bids[0][0], 64)
 			if ask <= 0 || bid <= 0 {
-				logging.Errorf("InterestRateUpload|book data zero,instId:%d,ask:%.2f,bid:%.2f", instId, ask, bid)
+				logging.Errorf("InterestRateUpload|book data zero,instId:%s,ask:%.2f,bid:%.2f", instId, ask, bid)
 				continue
 			}
 			fields := map[string]interface{}{
@@ -82,7 +82,7 @@ func InterestRateUpload(config *conf.Config) {
 			points = append(points, point)
 		}
 		if len(points) == 0 {
-			return
+			continue
 		}
 		err := influxDB.WritePoints(points)
 		if err != nil {
