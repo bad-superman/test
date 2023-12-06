@@ -38,3 +38,16 @@ type InstrumentsResp struct {
 	Msg  string           `json:"msg"`
 	Data []InstrumentData `json:"data"`
 }
+
+type MarkPriceData struct {
+	InstType okex.InstrumentType `json:"instType"`
+	InstId   string              `json:"instId"`
+	MarkPx   okex.JSONFloat64    `json:"markPx"`
+	TS       okex.JSONInt64      `json:"ts"`
+}
+
+type MarkPriceResp struct {
+	Code string          `json:"code"`
+	Msg  string          `json:"msg"`
+	Data []MarkPriceData `json:"data"`
+}

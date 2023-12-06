@@ -16,3 +16,13 @@ func TestInstruments(t *testing.T) {
 		convey.So(err, convey.ShouldBeNil)
 	})
 }
+
+func TestMarkPrice(t *testing.T) {
+	o := NewOkexClient()
+
+	convey.Convey("获取标记价格", t, func() {
+		data, err := o.MarkPrice(okex.FuturesInstrument, "", "", "BTC-USD-231229")
+		t.Log(data)
+		convey.So(err, convey.ShouldBeNil)
+	})
+}
