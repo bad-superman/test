@@ -54,6 +54,10 @@ type (
 	JSONInt64   int64
 	JSONTime    time.Time
 
+	SprdID    string
+	SprdType  string //Spread类型
+	SprdState string //Spread状态
+
 	ClientError error
 )
 
@@ -302,6 +306,13 @@ const (
 	CandleStick5m  = CandleStickWsBarSize("candle5m")
 	CandleStick3m  = CandleStickWsBarSize("candle3m")
 	CandleStick1m  = CandleStickWsBarSize("candle1m")
+
+	SprdLinearType  = SprdType("linear")
+	SprdInverseType = SprdType("inverse")
+
+	SprdLiveState    = SprdState("live")    // 交易中
+	SprdSuspendState = SprdState("suspend") //暂停中
+	SprdExpiredState = SprdState("expired") //已过期
 )
 
 func (t JSONTime) String() string { return time.Time(t).String() }
