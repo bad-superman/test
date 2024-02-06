@@ -46,6 +46,7 @@ type (
 	TradeOrderData struct {
 		ClOrdID string `json:"clOrdId"`
 		OrdID   string `json:"ordId"`
+		ReqId   string `json:"reqId"`
 		Tag     string `json:"tag"`
 		SCode   string `json:"sCode"`
 		SMsg    string `json:"sMsg"`
