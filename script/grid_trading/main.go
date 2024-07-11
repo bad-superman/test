@@ -15,7 +15,7 @@ import (
 const (
 	_filledInfo   = "### 成交信息\n #### side:%s pos_side:%s price:%v\n"
 	_positionInfo = "### 持仓信息\n #### long:%d short:%d\n"
-	_pendingInfo  = "### 挂单信息\n #### ask pos_slide:%s price:%v\n#### bid pos_slide:%s price:%v\n"
+	_pendingInfo  = "### 挂单信息\n #### ask pos_slide:%s price:%0.4f\n#### bid pos_slide:%s price:%0.4f\n"
 )
 
 func init() {
@@ -179,7 +179,7 @@ func (g *GRIDTrade) Trading() {
 		}
 		// 卖单成了
 		if askOrderInfo.State == okex.OrderFilled {
-			initPrice = float64(askOrder.Px)
+			initPrice = float64(askOrderInfo.Px)
 			content += fmt.Sprintf(_filledInfo, askOrderInfo.Side, askOrderInfo.PosSide, askOrderInfo.FillPx)
 		} else if askOrderInfo.State != okex.OrderCancel {
 			err = g.client.CancelOrder(g.instId, askOrderInfo.OrdID, askOrderInfo.ClOrdID)
@@ -189,7 +189,7 @@ func (g *GRIDTrade) Trading() {
 			}
 		}
 		if bidOrderInfo.State == okex.OrderFilled {
-			initPrice = float64(bidOrder.Px)
+			initPrice = float64(bidOrderInfo.Px)
 			content += fmt.Sprintf(_filledInfo, bidOrderInfo.Side, bidOrderInfo.PosSide, bidOrderInfo.FillPx)
 		} else if bidOrderInfo.State != okex.OrderCancel {
 			err = g.client.CancelOrder(g.instId, bidOrderInfo.OrdID, bidOrderInfo.ClOrdID)
