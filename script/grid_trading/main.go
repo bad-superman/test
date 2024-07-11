@@ -65,7 +65,7 @@ func (g *GRIDTrade) GetOrderPrice(price float64) (float64, float64) {
 	bid := float64(price / 1.05)
 	// 空仓的情况，卖出价格上调
 	if g.longPos == 0 && g.shortPos == 0 {
-		ask = float64(int(price * 1.5))
+		ask = float64(price * 1.5)
 	}
 	return ask, bid
 }
@@ -229,8 +229,8 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrder, bidOrder okex_api.Ord
 	askPosSide, bidPosSide := g.GetPosSide()
 	askOrderID := g.GetClOrderID(string(askSide), string(askPosSide))
 	bidOrderID := g.GetClOrderID(string(bidSide), string(bidPosSide))
-	logging.Infof("UpdateOrders,ask side:%v posSide:%s price:%f", askSide, askPosSide, askPrice)
-	logging.Infof("UpdateOrders,bid side:%v posSide:%s price:%f", bidSide, bidPosSide, bidPrice)
+	logging.Infof("UpdateOrders,ask side:%v posSide:%s price:%0.4f", askSide, askPosSide, askPrice)
+	logging.Infof("UpdateOrders,bid side:%v posSide:%s price:%0.4f", bidSide, bidPosSide, bidPrice)
 	askOrder = okex_api.Order{
 		InstID:  g.instId,
 		ClOrdID: askOrderID,
@@ -268,7 +268,7 @@ func main() {
 	var initPrice = flag.Float64("price", 0, "-price init trade price")
 	var instId = flag.String("instid", "", "-instid grid trade instance BTC-USD-230630")
 	flag.Parse()
-	fmt.Printf("init price:%f,instid:%s", *initPrice, *instId)
+	fmt.Printf("init price:%0.4f,instid:%s", *initPrice, *instId)
 	c := conf.GetConfig()
 	gridTrade := &GRIDTrade{
 		client:    okex_api.NewOkexClientByName(c, "test"),
