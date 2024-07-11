@@ -61,8 +61,8 @@ func (g *GRIDTrade) GetClOrderID(side, posSide string) string {
 }
 
 func (g *GRIDTrade) GetOrderPrice(price float64) (float64, float64) {
-	ask := float64(int(price * 1.05))
-	bid := float64(int(price / 1.05))
+	ask := float64(price * 1.05)
+	bid := float64(price / 1.05)
 	// 空仓的情况，卖出价格上调
 	if g.longPos == 0 && g.shortPos == 0 {
 		ask = float64(int(price * 1.5))
@@ -121,6 +121,9 @@ func (g *GRIDTrade) InitOrderPrice() (price float64, err error) {
 	if err != nil {
 		logging.Errorf("GRIDTrade|InitOrder FillsHistory error,err:%v", err)
 		return
+	}
+	if len(orders) == 0 {
+		return 0, nil
 	}
 	if orders[0].FillSz != 1 {
 		return 0, nil
