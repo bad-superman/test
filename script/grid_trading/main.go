@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bad-superman/test/conf"
@@ -15,7 +16,7 @@ import (
 const (
 	_filledInfo   = "### 成交信息\n #### side:%s pos_side:%s price:%v\n"
 	_positionInfo = "### 持仓信息\n #### long:%d short:%d\n"
-	_pendingInfo  = "### 挂单信息\n #### ask pos_slide:%s price:%v\n#### bid pos_slide:%s price:%v\n"
+	_pendingInfo  = "### 挂单信息\n #### ask pos_slide:%s price:%0.4f\n#### bid pos_slide:%s price:%0.4f\n"
 )
 
 func init() {
@@ -26,13 +27,33 @@ type GRIDTrade struct {
 	client    *okex_api.OkexClient
 	dClient   *v2.Manager
 	instId    string
+	instType  okex.InstrumentType
 	longPos   int64
 	shortPos  int64
 	initPrice float64
 }
 
+// 前置检查
+func (g *GRIDTrade) preCheck() error {
+	// 检查配置
+	tokenArr := strings.Split(g.instId, "-")
+	token := tokenArr[0]
+	baseToken := tokenArr[1]
+	uly := fmt.Sprintf("%s-%s", token, baseToken)
+	instData, err := g.client.Instruments(g.instType, uly, "", g.instId)
+	if err != nil {
+		logging.Errorf("preCheck|check Instruments error,err:%v", err)
+		return err
+	}
+	if len(instData) == 0 {
+		logging.Errorf("preCheck|instType[%s] not found", g.instId)
+		return fmt.Errorf("instType[%s] not found", g.instId)
+	}
+	return nil
+}
+
 func (g *GRIDTrade) GetBalance() (longPos int64, shortPos int64, err error) {
-	postions, err := g.client.AccountPositions(okex.FuturesInstrument, []string{g.instId}, nil)
+	postions, err := g.client.AccountPositions(g.instType, []string{g.instId}, nil)
 	if err != nil {
 		logging.Errorf("GRIDTrade|GetBalance error,err:%v", err)
 		return longPos, shortPos, err
@@ -61,11 +82,11 @@ func (g *GRIDTrade) GetClOrderID(side, posSide string) string {
 }
 
 func (g *GRIDTrade) GetOrderPrice(price float64) (float64, float64) {
-	ask := float64(int(price * 1.05))
-	bid := float64(int(price / 1.05))
+	ask := float64(price * 1.05)
+	bid := float64(price / 1.05)
 	// 空仓的情况，卖出价格上调
 	if g.longPos == 0 && g.shortPos == 0 {
-		ask = float64(int(price * 1.5))
+		ask = float64(price * 1.5)
 	}
 	return ask, bid
 }
@@ -122,6 +143,9 @@ func (g *GRIDTrade) InitOrderPrice() (price float64, err error) {
 		logging.Errorf("GRIDTrade|InitOrder FillsHistory error,err:%v", err)
 		return
 	}
+	if len(orders) == 0 {
+		return 0, nil
+	}
 	if orders[0].FillSz != 1 {
 		return 0, nil
 	}
@@ -130,6 +154,11 @@ func (g *GRIDTrade) InitOrderPrice() (price float64, err error) {
 }
 
 func (g *GRIDTrade) Trading() {
+	// 前置检查
+	err := g.preCheck()
+	if err != nil {
+		return
+	}
 	// 需要初始化订单,价格
 	initPrice, err := g.InitOrderPrice()
 	if err != nil {
@@ -176,7 +205,7 @@ func (g *GRIDTrade) Trading() {
 		}
 		// 卖单成了
 		if askOrderInfo.State == okex.OrderFilled {
-			initPrice = float64(askOrder.Px)
+			initPrice = float64(askOrderInfo.Px)
 			content += fmt.Sprintf(_filledInfo, askOrderInfo.Side, askOrderInfo.PosSide, askOrderInfo.FillPx)
 		} else if askOrderInfo.State != okex.OrderCancel {
 			err = g.client.CancelOrder(g.instId, askOrderInfo.OrdID, askOrderInfo.ClOrdID)
@@ -186,7 +215,7 @@ func (g *GRIDTrade) Trading() {
 			}
 		}
 		if bidOrderInfo.State == okex.OrderFilled {
-			initPrice = float64(bidOrder.Px)
+			initPrice = float64(bidOrderInfo.Px)
 			content += fmt.Sprintf(_filledInfo, bidOrderInfo.Side, bidOrderInfo.PosSide, bidOrderInfo.FillPx)
 		} else if bidOrderInfo.State != okex.OrderCancel {
 			err = g.client.CancelOrder(g.instId, bidOrderInfo.OrdID, bidOrderInfo.ClOrdID)
@@ -226,8 +255,8 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrder, bidOrder okex_api.Ord
 	askPosSide, bidPosSide := g.GetPosSide()
 	askOrderID := g.GetClOrderID(string(askSide), string(askPosSide))
 	bidOrderID := g.GetClOrderID(string(bidSide), string(bidPosSide))
-	logging.Infof("UpdateOrders,ask side:%v posSide:%s price:%f", askSide, askPosSide, askPrice)
-	logging.Infof("UpdateOrders,bid side:%v posSide:%s price:%f", bidSide, bidPosSide, bidPrice)
+	logging.Infof("UpdateOrders,ask side:%v posSide:%s price:%0.4f", askSide, askPosSide, askPrice)
+	logging.Infof("UpdateOrders,bid side:%v posSide:%s price:%0.4f", bidSide, bidPosSide, bidPrice)
 	askOrder = okex_api.Order{
 		InstID:  g.instId,
 		ClOrdID: askOrderID,
@@ -264,13 +293,15 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrder, bidOrder okex_api.Ord
 func main() {
 	var initPrice = flag.Float64("price", 0, "-price init trade price")
 	var instId = flag.String("instid", "", "-instid grid trade instance BTC-USD-230630")
+	var instType = flag.String("inst_type", "", "-inst_type grid trade instance type, FUTURES|SWAP")
 	flag.Parse()
-	fmt.Printf("init price:%f,instid:%s", *initPrice, *instId)
+	fmt.Printf("init price:%0.4f,instid:%s", *initPrice, *instId)
 	c := conf.GetConfig()
 	gridTrade := &GRIDTrade{
 		client:    okex_api.NewOkexClientByName(c, "test"),
 		dClient:   v2.New(c.DTalkToken),
 		instId:    *instId,
+		instType:  okex.InstrumentType(*instType),
 		initPrice: *initPrice,
 	}
 	defer func() {
