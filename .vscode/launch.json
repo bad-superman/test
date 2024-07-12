@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}",
-            "args": ["-price","1.930","-instid","WLD-USDT-SWAP"]
+            "args": ["-price","1.930","-instid","WLD-USDT-SWAP","-inst_type","SWAP"]
         }
     ]
 }

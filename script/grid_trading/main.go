@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bad-superman/test/conf"
@@ -26,13 +27,33 @@ type GRIDTrade struct {
 	client    *okex_api.OkexClient
 	dClient   *v2.Manager
 	instId    string
+	instType  okex.InstrumentType
 	longPos   int64
 	shortPos  int64
 	initPrice float64
 }
 
+// 前置检查
+func (g *GRIDTrade) preCheck() error {
+	// 检查配置
+	tokenArr := strings.Split(g.instId, "-")
+	token := tokenArr[0]
+	baseToken := tokenArr[1]
+	uly := fmt.Sprintf("%s-%s", token, baseToken)
+	instData, err := g.client.Instruments(g.instType, uly, "", g.instId)
+	if err != nil {
+		logging.Errorf("preCheck|check Instruments error,err:%v", err)
+		return err
+	}
+	if len(instData) == 0 {
+		logging.Errorf("preCheck|instType[%s] not found", g.instId)
+		return fmt.Errorf("instType[%s] not found", g.instId)
+	}
+	return nil
+}
+
 func (g *GRIDTrade) GetBalance() (longPos int64, shortPos int64, err error) {
-	postions, err := g.client.AccountPositions(okex.FuturesInstrument, []string{g.instId}, nil)
+	postions, err := g.client.AccountPositions(g.instType, []string{g.instId}, nil)
 	if err != nil {
 		logging.Errorf("GRIDTrade|GetBalance error,err:%v", err)
 		return longPos, shortPos, err
@@ -133,6 +154,11 @@ func (g *GRIDTrade) InitOrderPrice() (price float64, err error) {
 }
 
 func (g *GRIDTrade) Trading() {
+	// 前置检查
+	err := g.preCheck()
+	if err != nil {
+		return
+	}
 	// 需要初始化订单,价格
 	initPrice, err := g.InitOrderPrice()
 	if err != nil {
@@ -267,6 +293,7 @@ func (g *GRIDTrade) UpdateOrders(price float64) (askOrder, bidOrder okex_api.Ord
 func main() {
 	var initPrice = flag.Float64("price", 0, "-price init trade price")
 	var instId = flag.String("instid", "", "-instid grid trade instance BTC-USD-230630")
+	var instType = flag.String("inst_type", "", "-inst_type grid trade instance type, FUTURES|SWAP")
 	flag.Parse()
 	fmt.Printf("init price:%0.4f,instid:%s", *initPrice, *instId)
 	c := conf.GetConfig()
@@ -274,6 +301,7 @@ func main() {
 		client:    okex_api.NewOkexClientByName(c, "test"),
 		dClient:   v2.New(c.DTalkToken),
 		instId:    *instId,
+		instType:  okex.InstrumentType(*instType),
 		initPrice: *initPrice,
 	}
 	defer func() {
