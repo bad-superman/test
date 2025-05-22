@@ -6,10 +6,15 @@ import (
 )
 
 type Config struct {
-	InfluxConfig InfluxConfig  `toml:"influx_config"`
-	OkexConfigs  []*OkexConfig `toml:"okex_config"`
+	InfluxConfig InfluxConfig   `toml:"influx_config"`
+	OkexConfigs  []*OkexConfig  `toml:"okex_config"`
+	Database     DatabaseConfig `toml:"database"`
+	DTalkToken   string         `toml:"dingtalk_token"`
+	Thegraph     ThegraphConfig `toml:"thegraph"`
+}
 
-	DTalkToken string `toml:"dingtalk_token"`
+type DatabaseConfig struct {
+	DSN string `toml:"dsn"`
 }
 
 type OkexConfig struct {
@@ -24,6 +29,10 @@ type InfluxConfig struct {
 	URL    string `toml:"url"`
 	Org    string `toml:"org"`
 	Bucket string `toml:"bucket"`
+}
+
+type ThegraphConfig struct {
+	ApiKey string `toml:"api_key"`
 }
 
 var _config *Config = new(Config)

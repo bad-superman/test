@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	_okexRestApiHost = "https://aws.okx.com"
+	_okexRestApiHost = "https://www.okx.com"
 	_okexApiKey      = "5647dfa2-8bdd-46f4-a9dc-07c7bb27ea37"
 	_okexSecretKey   = "B9BB7597D2DF626FEA7C3F48B3E5A85A"
 	_okexPassphrase  = "Nuanguang@909"

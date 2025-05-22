@@ -7,28 +7,34 @@ import (
 	"github.com/bad-superman/test/dao"
 	"github.com/bad-superman/test/logging"
 	okex_api "github.com/bad-superman/test/sdk/okex/api"
+	"github.com/bad-superman/test/sdk/thegraph"
 	"github.com/bad-superman/test/sdk/utils"
 	"github.com/robfig/cron"
 )
 
 type DataCron struct {
-	cron       *cron.Cron
-	influxDb   *dao.InfluxDBV2
-	okexClient *okex_api.OkexClient
+	cron           *cron.Cron
+	dao            *dao.Dao
+	influxDb       *dao.InfluxDBV2
+	okexClient     *okex_api.OkexClient
+	thegraphClient *thegraph.Client
 }
 
 func NewDataCron() *DataCron {
 	c := conf.GetConfig()
 	return &DataCron{
-		cron:       cron.New(),
-		influxDb:   dao.NewInfluxDBV2(c),
-		okexClient: okex_api.NewOkexClientByName(c, "test"),
+		cron:           cron.New(),
+		influxDb:       dao.NewInfluxDBV2(c),
+		okexClient:     okex_api.NewOkexClientByName(c, "test"),
+		thegraphClient: thegraph.NewClient(c.Thegraph.ApiKey),
+		dao:            dao.New(c),
 	}
 }
 
 func (d *DataCron) Run() {
 	d.cron.AddFunc("0 */10 * * * *", d.OkexOTCCron)
 	d.cron.AddFunc("0 */10 * * * *", d.OkexExchangeRate)
+	d.cron.AddFunc("0 0 * * * *", d.SyncAllTheGraphIndexer)
 	d.cron.Start()
 }
 
