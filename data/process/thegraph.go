@@ -42,6 +42,7 @@ func (d *DataCron) syncAllTheGraphIndexerWorker(ctx context.Context) {
 			return
 		}
 		for _, indexer := range result.Data.Indexers {
+			indexer.UpdatedAt = time.Now()
 			err := d.dao.UpsertIndexer(&indexer)
 			if err != nil {
 				logging.Errorf("upsert indexer failed: %v", err)
