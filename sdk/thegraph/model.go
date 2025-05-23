@@ -71,7 +71,7 @@ func (Indexer) TableName() string {
 
 // DDL 返回创建表的SQL语句
 func (Indexer) DDL() string {
-	return `CREATE TABLE IF NOT EXISTS indexers (
+	return `CREATE TABLE IF NOT EXISTS thegraph_indexer (
   id CHAR(40) PRIMARY KEY,
   created_at BIGINT,
   url VARCHAR(255),
